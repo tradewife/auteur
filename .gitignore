@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+output/
+*.mp4
+*.png
+*.jpg
+*.jpeg
+.ruff_cache/
+.pytest_cache/
+perplexity-chat.md
