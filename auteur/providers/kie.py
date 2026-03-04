@@ -13,6 +13,8 @@ Base URL: https://api.kie.ai/api/v1
 
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from auteur.config import get_settings
@@ -48,7 +50,7 @@ _KIE_VIDEO_MODELS: dict[str, str] = {
 _KIE_IMAGE_MODELS: dict[str, str] = {
     "nano-banana": "nano_banana_2",
     "nano-banana-pro": "nano_banana_pro",
-    "gpt-image": "gpt_image_1.5",
+    "gpt-image": "gpt-image/1.5-text-to-image",
     "flux-kontext": "flux_kontext",
 }
 
@@ -124,8 +126,7 @@ class KieProvider(GenerationProvider):
                 )
                 resp.raise_for_status()
                 data = resp.json()
-
-                task_id = data.get("data", {}).get("task_id", "")
+                task_id = data.get("data", {}).get("taskId", "") or data.get("data", {}).get("task_id", "")
                 if not task_id:
                     return GenerationResult(
                         success=False,
@@ -196,45 +197,60 @@ class KieProvider(GenerationProvider):
     async def _generate_image(self, request: GenerationRequest, model_key: str) -> GenerationResult:
         """Generate an image via Kie.ai image models."""
         kie_model = _KIE_IMAGE_MODELS[model_key]
-        payload = {
-            "model": kie_model,
-            "prompt": request.prompt.positive,
-        }
+        input_payload: dict[str, str] = {"prompt": request.prompt.positive}
         params = request.prompt.parameters
         if "aspect_ratio" in params:
-            payload["aspect_ratio"] = params["aspect_ratio"]
+            input_payload["aspect_ratio"] = params["aspect_ratio"]
+        if model_key == "gpt-image":
+            input_payload.setdefault("aspect_ratio", "1:1")
+            input_payload.setdefault("quality", "medium")
+
+        payload = {
+            "model": kie_model,
+            "input": input_payload,
+        }
 
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
-                    f"{KIE_API_BASE}/image/generate",
+                    f"{KIE_API_BASE}/jobs/createTask",
                     json=payload,
                     headers=self._headers(),
                 )
                 resp.raise_for_status()
                 data = resp.json()
-
-                task_id = data.get("data", {}).get("task_id", "")
+                task_id = data.get("data", {}).get("taskId", "") or data.get("data", {}).get("task_id", "")
                 if not task_id:
                     return GenerationResult(
                         success=False,
                         provider=self.name,
                         model=model_key,
-                        error=f"No task_id in response: {data}",
+                        error=f"No taskId in response: {data}",
                     )
 
                 import asyncio
                 for _ in range(60):  # 5 minutes max for image
                     status_resp = await client.get(
-                        f"{KIE_API_BASE}/task/{task_id}",
+                        f"{KIE_API_BASE}/jobs/recordInfo",
+                        params={"taskId": task_id},
                         headers=self._headers(),
                     )
                     status_data = status_resp.json()
                     task_info = status_data.get("data", {})
-                    status = task_info.get("status", "")
+                    status = task_info.get("state", "") or status_data.get("status", "")
 
-                    if status == "completed":
-                        image_url = task_info.get("output", {}).get("image_url", "")
+                    if status == "success":
+                        result_json = task_info.get("resultJson", "")
+                        parsed = {}
+                        if isinstance(result_json, str):
+                            try:
+                                parsed = json.loads(result_json)
+                            except json.JSONDecodeError:
+                                parsed = {}
+                        elif isinstance(result_json, dict):
+                            parsed = result_json
+                        urls = parsed.get("resultUrls", []) if isinstance(parsed, dict) else []
+                        image_url = urls[0] if urls else ""
                         return GenerationResult(
                             success=bool(image_url),
                             provider=self.name,
@@ -243,12 +259,12 @@ class KieProvider(GenerationProvider):
                             url=image_url,
                             metadata=task_info,
                         )
-                    elif status == "failed":
+                    elif status == "fail":
                         return GenerationResult(
                             success=False,
                             provider=self.name,
                             model=model_key,
-                            error=f"Kie image task failed: {task_info.get('error', 'unknown')}",
+                            error=f"Kie image task failed: {task_info.get('failMsg', 'unknown')}",
                         )
 
                     await asyncio.sleep(3)
