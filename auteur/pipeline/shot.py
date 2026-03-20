@@ -158,7 +158,7 @@ class ShotPipeline:
         optimized = composed.optimize(model=animation_models[0])
 
         # Override duration
-        optimized.parameters["duration"] = str(int(spec.animation_duration_s))
+        optimized.parameters["duration"] = str(int(spec.duration_seconds))
 
         video_request = GenerationRequest(
             prompt=optimized,

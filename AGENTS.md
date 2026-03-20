@@ -1,7 +1,7 @@
-# AUTEUR — Agent Handover Document
+# AUTEUR — Agent Handover & Protocol Document
 
 ## Project Summary
-AUTEUR is a cinematography intelligence system for AI generation agents. It encodes deep filmmaking knowledge into composable Pydantic models and exposes everything via an MCP server. ~8000 lines of Python across 42 files.
+AUTEUR is a cinematography intelligence system for AI generation agents. It encodes deep filmmaking knowledge — dramatic architecture (Aristotelian beat structure), Meisner-method acting grammar, cathartic language philosophy (Godmode), and a 4-DP auteur enrichment layer — into composable Pydantic models and exposes everything via an MCP server.
 
 **Repo:** `/home/kt/cineforge` (local) / `https://github.com/tradewife/auteur.git` (remote)
 **Branch:** `master`
@@ -130,16 +130,83 @@ print(opt.positive[:200])
 "
 ```
 
+## v1 — New Systems
+
+### Dramatic Engine (`auteur/agents/director.py`)
+- `MUSIC_VIDEO_BEAT_STRUCTURE` — 9-beat Aristotelian arc mapped to song sections
+- `tension_to_duration()` — Maps tension level + section to shot duration (no more flat 10s clips)
+- `DirectorAgent.plan_music_video()` — Full music video planning with tension-driven pacing
+
+### Character System (`auteur/knowledge/project.py`)
+- `CharacterSpec` — Persistent character with Meisner anchor (`core_desire`), physical signature, hero shot URL
+- `MusicVideoBrief` — Structured brief: singer identity, protagonist, soul_lexicon, forbidden_words
+
+### Prompt Sanitiser (`auteur/prompt/sanitiser.py`)
+- `validate_shot()` — Pre-generation validation (aesthetic_style, meisner_note, camera package, banned words)
+- `strip_banned_tokens()` — Removes genre labels, dead emotional words, transcendence clichés
+- `ValidationResult` — Errors + warnings with actionable messages
+
+### Skill Documents (`auteur/knowledge/skills/`)
+- `STORYTELLER.md` — Dramatic architecture, 9-beat arc, singer rule, humanity rule
+- `ACTORS_HANDBOOK.md` — Meisner method operationalized: behavior not feelings, 4 body states, proxemics
+- `SOUL_LEXICON.md` — Cathartic image philosophy, Soul-Lexicon, living language, productive impossibility
+
+### New MCP Tools
+- `plan_music_video` — 9-beat arc with tension curve
+- `generate_hero_shots` — Character portraits with full AuteurLayer enrichment
+- `sanitise_and_submit` — Enforcement gate (the ONLY valid path to generation)
+
+### New ShotSpec Fields
+- `character_id` — References CharacterSpec
+- `meisner_note` — Visible physical behavior (one sentence, no adjectives)
+- `tension_level` — 0.0–1.0, drives duration and cut rhythm
+- `i2v_source_url` — Concept image URL for image-to-video
+- `duration_seconds` — Renamed from `animation_duration_s`, set by tension_to_duration()
+
+---
+
+## MANDATORY MUSIC VIDEO PROTOCOL
+
+### Pipeline Order (call in this sequence):
+1. `analyse_brief` — Capture creative intent
+2. Set `MusicVideoBrief` on project (singer_identity, protagonist, thematic_conflict, soul_lexicon)
+3. `propose_visual_language` — Lock AestheticStyle (call ONCE, never per-shot)
+4. `plan_music_video` — 9-beat dramatic arc with tension-driven pacing
+5. `generate_hero_shots` — Portraits for every CharacterSpec
+6. `sanitise_and_submit` — The ONLY valid path to generation
+
+### PROHIBITIONS:
+- No standalone scripts calling KieProvider directly
+- No `GenerationRequest` without a `ShotSpec` flowing through `PromptComposer`
+- No forbidden words in prompts (cyberpunk, sci-fi, masterpiece, ethereal, etc.)
+- No empty `meisner_note` on character shots
+- No default `duration_seconds` (6.0) — must be set by `tension_to_duration()`
+- No DP names in final prompts (inputs to AuteurLayer only)
+- No generation before `visual_language_locked == True`
+- No dead emotional words (love, fear, beauty, hope, sad, happy, lonely)
+
+### Singer Rule:
+Singer = protagonist by default. 40% minimum screen presence for singer-presenting character.
+
+### Camera Rule:
+Every shot must have a camera package sentence: body, lens, focal length, aperture, movement.
+
+### Skill Documents (read before any music video run):
+1. `auteur/knowledge/skills/STORYTELLER.md`
+2. `auteur/knowledge/skills/SOUL_LEXICON.md`
+3. `auteur/knowledge/skills/ACTORS_HANDBOOK.md`
+
+---
+
 ## What Could Come Next
-- **Actual generation** — Wire `ShotPipeline`/`SequencePipeline` to real API calls (providers are structured but `generate()` methods need API keys + real HTTP calls)
-- **More auteurs** — Add DP profiles (Bradford Young, Hoyte, Janusz Kaminski, Robert Richardson, etc.) to the signal matching
-- **Image-to-video** — i2v workflow (generate still → animate) is stubbed in providers but not wired end-to-end
-- **Reference image analysis** — Accept image inputs, extract style signals, match to auteur blend
-- **Persistence** — Projects currently session-scoped; could add SQLite/JSON persistence
-- **Tests** — No formal test suite yet; all validation was interactive
-- **Audio design** — Some video models (Veo 3, Kling 3.0, Sora 2) support native audio; could add sound design knowledge
+- **Blocking renderer** — Manim-based stick-figure animatic from ShotSpec (zero-cost pre-viz)
+- **More auteurs** — Bradford Young, Janusz Kaminski, Robert Richardson DP profiles
+- **Persistence** — SQLite/JSON project persistence (currently session-scoped)
+- **Tests** — Formal test suite
+- **Audio design** — Sound design knowledge for models with native audio
 
 ## Files NOT in git
-- `perplexity-chat.md` — Research notes (in .gitignore)
 - `.env` — API keys (in .gitignore)
 - `.venv/` — Python virtual environment (in .gitignore)
+- `take-me-to-sol/` — First run output (untracked)
+- `auteur-v1-notes/` — Planning notes (untracked)

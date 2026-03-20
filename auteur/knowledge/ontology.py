@@ -295,5 +295,29 @@ class ShotSpec(BaseModel):
     # Generation metadata
     target_model: str = Field(default="", description="Target generation model (e.g. 'flux-pro', 'veo3')")
     animate: bool = Field(default=False, description="Whether to animate after image generation")
-    animation_duration_s: float = Field(default=6.0, description="Animation duration in seconds")
+    duration_seconds: float = Field(default=6.0, description="Intended clip duration in seconds — set by pacing logic, not left at default")
     seed: int | None = Field(default=None, description="Seed for reproducibility")
+
+    # Music video / dramatic fields
+    character_id: str | None = Field(
+        default=None,
+        description="References CharacterSpec.character_id — who is on screen",
+    )
+    meisner_note: str = Field(
+        default="",
+        description=(
+            "Visible physical behavior only. No adjectives, no emotion-words. "
+            "One sentence: [body action] + [in relation to what] + [what is NOT done]. "
+            "E.g. 'She presses her palm flat against the glass and doesn't look at him'"
+        ),
+    )
+    tension_level: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="0=still/contemplative, 1=peak chaos. Drives duration and cut rhythm.",
+    )
+    i2v_source_url: str | None = Field(
+        default=None,
+        description="Concept image URL for image-to-video generation (hero shot or keyframe)",
+    )

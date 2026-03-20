@@ -18,6 +18,97 @@ from pydantic import BaseModel, Field
 from auteur.knowledge.ontology import ShotSpec, AspectRatio
 
 
+# ---------------------------------------------------------------------------
+# Character & Music Video models
+# ---------------------------------------------------------------------------
+
+
+class CharacterSpec(BaseModel):
+    """A persistent character that can be referenced across shots.
+
+    Every character in the film gets one of these. The protagonist is always
+    created first — by default derived from the singer's identity.
+    """
+
+    character_id: str = Field(description="Unique ID, e.g. 'PROTAGONIST_A', 'LOVER_B'")
+    role: str = Field(
+        description="'singer_protagonist', 'secondary', 'antagonist', 'absent'",
+    )
+    presentation: str = Field(
+        description=(
+            "Precise physical descriptor — never just a gender label. "
+            "E.g. 'late-20s woman, shaved head, silver eyeliner, white cotton shirt'"
+        ),
+    )
+    core_desire: str = Field(
+        default="",
+        description=(
+            "Meisner anchor containing a contradiction. "
+            "E.g. 'She wants to be loved unconditionally but cannot stop testing the people who love her'"
+        ),
+    )
+    physical_signature: str = Field(
+        default="",
+        description=(
+            "Recurring behavior that evolves across beats. "
+            "E.g. 'She always leaves space on the left side of whatever surface she occupies'"
+        ),
+    )
+    signature_prop: str = Field(default="", description="Recurring visual anchor (prop, accessory)")
+    wardrobe_note: str = Field(default="", description="Costume/wardrobe details for consistency")
+    hero_shot_url: str = Field(
+        default="",
+        description="URL of the generated hero portrait — used as i2v source for subsequent shots",
+    )
+
+
+class MusicVideoBrief(BaseModel):
+    """Structured brief derived from lyrics + user input.
+
+    Must exist before any shot planning. The singer is the protagonist by
+    default — override only when the human brief explicitly separates them.
+    """
+
+    song_title: str = Field(description="Title of the track")
+    singer_identity: str = Field(
+        description="Precise physical/presentational descriptor of the vocalist",
+    )
+    protagonist: CharacterSpec = Field(
+        description="Primary character — defaults to singer. Must be set before planning.",
+    )
+    secondary_characters: list[CharacterSpec] = Field(default_factory=list)
+    voice_pov: str = Field(
+        default="",
+        description="Lyrical POV — 'first-person confessional', 'address to absent lover', etc.",
+    )
+    thematic_conflict: str = Field(
+        default="",
+        description="Personal AND universal tension — no genre labels",
+    )
+    song_sections: list[str] = Field(
+        default_factory=list,
+        description="Ordered list: ['intro', 'verse_1', 'chorus_1', 'verse_2', ...]",
+    )
+    soul_lexicon: list[str] = Field(
+        default_factory=list,
+        description=(
+            "4-8 phrases forged from the protagonist's wound (Godmode principle). "
+            "Sensory and specific, not abstract. Used to give the film a consistent emotional frequency."
+        ),
+    )
+    forbidden_words: list[str] = Field(
+        default_factory=lambda: [
+            "cyberpunk", "sci-fi", "science fiction", "futuristic", "dystopian",
+            "fantasy", "dark academia", "steampunk", "masterpiece", "trending",
+            "highly detailed", "epic", "cinematic", "ethereal", "breathtaking",
+        ],
+    )
+    visual_language_locked: bool = Field(
+        default=False,
+        description="Set to True only after propose_visual_language() is called",
+    )
+
+
 class ProjectStatus(str, Enum):
     """Project lifecycle status."""
 
@@ -105,6 +196,16 @@ class Beat(BaseModel):
     suggested_shot_size: str = Field(default="", description="Suggested framing (wide, medium, close_up)")
     suggested_movement: str = Field(default="", description="Suggested camera movement")
     notes: str = Field(default="", description="Additional direction notes")
+    tension_level: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Tension intensity — drives pacing and duration of resulting shots",
+    )
+    meisner_note: str = Field(
+        default="",
+        description="Visible physical behavior for the primary character in this beat",
+    )
 
 
 class Scene(BaseModel):
@@ -115,6 +216,10 @@ class Scene(BaseModel):
     description: str = Field(default="", description="Scene description")
     location: str = Field(default="", description="Where the scene takes place")
     time_of_day: str = Field(default="", description="When (dawn, day, dusk, night)")
+    characters: list[CharacterSpec] = Field(
+        default_factory=list,
+        description="Characters present in this scene",
+    )
     beats: list[Beat] = Field(default_factory=list)
     shots: list[ShotSpec] = Field(default_factory=list)
 
@@ -131,6 +236,10 @@ class Project(BaseModel):
     status: ProjectStatus = Field(default=ProjectStatus.BRIEF)
     brief: Brief = Field(default_factory=lambda: Brief(logline=""))
     visual_language: VisualLanguage = Field(default_factory=VisualLanguage)
+    music_video_brief: MusicVideoBrief | None = Field(
+        default=None,
+        description="Music video specific brief — set before shot planning",
+    )
     scenes: list[Scene] = Field(default_factory=list)
     target_model: str = Field(default="flux-pro", description="Default generation model")
 

@@ -48,7 +48,7 @@ class ComposedPrompt(BaseModel):
             aspect_ratio=self.shot_spec.composition.aspect_ratio.value
             if self.shot_spec.composition.aspect_ratio
             else None,
-            duration_s=self.shot_spec.animation_duration_s
+            duration_s=self.shot_spec.duration_seconds
             if self.shot_spec.animate
             else None,
         )
@@ -73,19 +73,25 @@ class PromptComposer:
     """
 
     @classmethod
-    def compose(cls, shot: ShotSpec) -> ComposedPrompt:
+    def compose(
+        cls,
+        shot: ShotSpec,
+        soul_lexicon: list[str] | None = None,
+    ) -> ComposedPrompt:
         """Compose a complete prompt from a shot specification.
 
         Args:
             shot: Complete ShotSpec with all cinematographic parameters.
+            soul_lexicon: Optional list of Soul-Lexicon phrases from MusicVideoBrief.
+                Woven into key beats via _compose_catalyst for consistent emotional frequency.
 
         Returns:
             ComposedPrompt with positive/negative prompts and metadata.
         """
         layers: dict[str, str] = {}
 
-        # Layer 1: Subject/scene
-        layers["subject"] = cls._compose_subject(shot)
+        # Layer 1: Subject/scene (with optional catalyst from Soul-Lexicon)
+        layers["subject"] = cls._compose_catalyst(shot, soul_lexicon=soul_lexicon)
 
         # Layer 2: Composition & framing
         layers["composition"] = cls._compose_composition(shot)
@@ -148,11 +154,39 @@ class PromptComposer:
     # ---------------------------------------------------------------------------
 
     @classmethod
-    def _compose_subject(cls, shot: ShotSpec) -> str:
-        """Layer 1: Subject description — the most important part of the prompt."""
+    def _compose_catalyst(
+        cls,
+        shot: ShotSpec,
+        soul_lexicon: list[str] | None = None,
+    ) -> str:
+        """Layer 1: Subject description — the most important part of the prompt.
+
+        Incorporates meisner_note (if present) as behavioral direction and
+        Soul-Lexicon phrases at key dramatic beats for emotional resonance.
+        """
         parts = [shot.description]
+
+        # Inject meisner_note as behavioral direction
+        if shot.meisner_note:
+            parts.append(shot.meisner_note)
+
         if shot.narrative_beat:
             parts.append(f"({shot.narrative_beat} moment)")
+
+        # Soul-Lexicon: weave a phrase at key beats for emotional resonance
+        if soul_lexicon and shot.narrative_beat in (
+            "inciting_rupture", "climax", "resolution", "reversal",
+        ):
+            # Select phrase based on beat position — cycle through lexicon
+            beat_index = {
+                "inciting_rupture": 0,
+                "reversal": 1,
+                "climax": 2,
+                "resolution": 3,
+            }.get(shot.narrative_beat, 0)
+            phrase = soul_lexicon[beat_index % len(soul_lexicon)]
+            parts.append(phrase)
+
         return ", ".join(parts)
 
     @classmethod

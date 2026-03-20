@@ -33,11 +33,15 @@ from auteur.prompt.negative import NegativePromptLibrary
 
 # Agents
 from auteur.agents.cinematographer import CinematographerAgent
-from auteur.agents.director import DirectorAgent, PACING_TEMPLATES
+from auteur.agents.director import DirectorAgent, PACING_TEMPLATES, MUSIC_VIDEO_BEAT_STRUCTURE
+
+# Prompt sanitiser
+from auteur.prompt.sanitiser import validate_shot, strip_banned_tokens
 
 # Project state
 from auteur.knowledge.project import (
     Project, Brief, VisualLanguage, Scene, Beat, ProjectStatus,
+    CharacterSpec, MusicVideoBrief,
 )
 
 # ---------------------------------------------------------------------------
@@ -536,6 +540,257 @@ def quick_compose(
     }
     if aesthetic_data:
         result["auteur_blend"] = aesthetic.auteur_blend
+    return result
+
+
+@mcp.tool
+def plan_music_video(
+    project_id: str,
+    scene_description: str,
+    song_sections: list[str] | None = None,
+    mood: str = "",
+    model: str = "kling-3.0",
+) -> dict:
+    """Plan a full music video using the 9-beat dramatic arc.
+
+    Requires a MusicVideoBrief on the project (set singer_identity, protagonist,
+    thematic_conflict first). Maps song sections to dramatic beats with
+    tension-driven pacing — no more flat 10-second clips.
+
+    Returns the full beat list with shot counts, durations, and tension curve.
+    """
+    project = _projects.get(project_id)
+    if not project:
+        return {"error": f"Project {project_id} not found"}
+    if not project.music_video_brief:
+        return {"error": "No MusicVideoBrief set on project. Set singer_identity and protagonist first."}
+
+    brief = project.music_video_brief
+    if not brief.visual_language_locked:
+        pass  # warning, not error — will be included in response
+
+    style = project.visual_language.style_profile
+    effective_mood = mood or project.brief.mood
+
+    director = DirectorAgent(style=style)
+    sequences = director.plan_music_video(
+        scene_description,
+        brief=brief,
+        song_sections=song_sections or brief.song_sections or None,
+        style=style,
+        mood=effective_mood,
+        model=model,
+    )
+
+    # Register sequences as scenes
+    for seq in sequences:
+        scene = Scene(
+            name=seq.name[:80],
+            description=seq.description,
+            shots=seq.shots,
+        )
+        project.scenes.append(scene)
+    project.status = ProjectStatus.SHOT_DESIGN
+
+    # Build response with tension curve
+    beat_summaries = []
+    for i, (act, label, section, tension, pacing) in enumerate(MUSIC_VIDEO_BEAT_STRUCTURE):
+        seq = sequences[i] if i < len(sequences) else None
+        beat_summaries.append({
+            "beat": i + 1,
+            "act": act,
+            "label": label,
+            "section": (song_sections or brief.song_sections or [section])[i]
+                if i < len(song_sections or brief.song_sections or [section])
+                else section,
+            "tension": tension,
+            "shots": len(seq.shots) if seq else 0,
+            "duration_per_shot": seq.shots[0].duration_seconds if seq and seq.shots else 0,
+        })
+
+    result = {
+        "project_id": project_id,
+        "status": "music_video_planned",
+        "beats": beat_summaries,
+        "total_shots": sum(len(s.shots) for s in sequences),
+        "next_step": "Call generate_hero_shots for character portraits, then sanitise_and_submit for each shot.",
+    }
+    if not brief.visual_language_locked:
+        result["warning"] = "Visual language not locked — call propose_visual_language before generation."
+    return result
+
+
+@mcp.tool
+def generate_hero_shots(
+    project_id: str,
+    model: str = "gpt-image",
+) -> dict:
+    """Generate hero portrait shots for all characters in the MusicVideoBrief.
+
+    Creates a close-up portrait ShotSpec for each CharacterSpec, composes a
+    full AuteurLayer-enriched prompt, and returns the composed prompts ready
+    for submission. The URLs should be stored back as hero_shot_url on each
+    character and as i2v_source_url on their subsequent shots.
+
+    NOTE: This tool composes the prompts but does not call the generation API
+    directly — use the returned prompts with your generation workflow.
+    """
+    project = _projects.get(project_id)
+    if not project:
+        return {"error": f"Project {project_id} not found"}
+    if not project.music_video_brief:
+        return {"error": "No MusicVideoBrief set on project."}
+
+    brief = project.music_video_brief
+    characters = [brief.protagonist] + brief.secondary_characters
+
+    from auteur.knowledge.ontology import (
+        ShotSpec, LensSpec, LightSetup, CompositionSpec,
+        ShotSize, ShotAngle, LightQuality, LightSource,
+    )
+
+    hero_prompts = []
+    for char in characters:
+        # Build a portrait ShotSpec with full auteur enrichment
+        desc = (
+            f"{char.presentation}, "
+            f"{char.wardrobe_note + ', ' if char.wardrobe_note else ''}"
+            f"portrait, {char.signature_prop + ', ' if char.signature_prop else ''}"
+            f"character-defining close-up"
+        )
+
+        # Use project aesthetic_style if available
+        aesthetic_data = None
+        if project.visual_language.style_description:
+            aesthetic = AestheticStyle(
+                description=project.visual_language.style_description,
+                mood=project.visual_language.style_mood or project.brief.mood,
+            )
+            aesthetic = AuteurLayer.enrich(aesthetic)
+            aesthetic_data = aesthetic.model_dump()
+
+        shot = ShotSpec(
+            description=desc,
+            emotional_intent="character-defining",
+            narrative_beat="opening_image",
+            style_profile=project.visual_language.style_profile,
+            aesthetic_style=aesthetic_data,
+            character_id=char.character_id,
+            lens=LensSpec(focal_length_mm=85, max_aperture=1.4),
+            lighting=LightSetup(
+                name="Rembrandt",
+                sources=[LightSource(role="key", quality=LightQuality.SOFT, direction="45° camera-left")],
+                key_to_fill_ratio="3:1",
+            ),
+            composition=CompositionSpec(
+                shot_size=ShotSize.CLOSE_UP,
+                angle=ShotAngle.EYE_LEVEL,
+            ),
+            target_model=model,
+        )
+
+        composed = PromptComposer.compose(shot, soul_lexicon=brief.soul_lexicon)
+        optimized = composed.optimize(model=model)
+
+        hero_prompts.append({
+            "character_id": char.character_id,
+            "role": char.role,
+            "positive_prompt": optimized.positive,
+            "negative_prompt": optimized.negative,
+            "model": optimized.model,
+            "parameters": optimized.parameters,
+        })
+
+    return {
+        "project_id": project_id,
+        "hero_shots": hero_prompts,
+        "next_step": (
+            "Submit these to generation. Store returned URLs as hero_shot_url on each "
+            "CharacterSpec and as i2v_source_url on their subsequent shots."
+        ),
+    }
+
+
+@mcp.tool
+def sanitise_and_submit(
+    project_id: str,
+    scene_index: int = 0,
+    shot_index: int = 0,
+    model: str = "",
+) -> dict:
+    """The enforcement gate — the ONLY valid path to generation for music videos.
+
+    Composes the prompt, validates the shot against all quality checks
+    (aesthetic_style, meisner_note, camera package, forbidden words, pacing),
+    strips banned tokens, and returns the optimized prompt ready for submission.
+
+    If validation fails, returns actionable errors instead of a prompt.
+    """
+    project = _projects.get(project_id)
+    if not project:
+        return {"error": f"Project {project_id} not found"}
+
+    if scene_index >= len(project.scenes):
+        return {"error": f"Scene {scene_index} not found (have {len(project.scenes)} scenes)"}
+    scene = project.scenes[scene_index]
+    if shot_index >= len(scene.shots):
+        return {"error": f"Shot {shot_index} not found (have {len(scene.shots)} shots)"}
+
+    shot = scene.shots[shot_index]
+    brief = project.music_video_brief
+
+    # Step 1: Compose prompt with Soul-Lexicon
+    soul_lexicon = brief.soul_lexicon if brief else None
+    composed = PromptComposer.compose(shot, soul_lexicon=soul_lexicon)
+
+    # Step 2: Validate
+    extra_banned = brief.forbidden_words if brief else None
+    validation = validate_shot(shot, composed.positive, extra_banned)
+
+    if not validation.passed:
+        return {
+            "status": "validation_failed",
+            "errors": [{
+                "field": issue.field,
+                "message": issue.message,
+            } for issue in validation.errors],
+            "warnings": [{
+                "field": issue.field,
+                "message": issue.message,
+            } for issue in validation.warnings],
+        }
+
+    # Step 3: Strip banned tokens from composed prompt
+    cleaned_positive = strip_banned_tokens(composed.positive, extra_banned)
+
+    # Step 4: Optimize for target model
+    target = model or project.target_model
+    from auteur.prompt.optimizer import PromptOptimizer
+    optimized = PromptOptimizer.optimize(
+        cleaned_positive,
+        composed.negative,
+        model=target,
+        aspect_ratio=shot.composition.aspect_ratio.value,
+        duration_s=shot.duration_seconds if shot.animate else None,
+    )
+
+    result = {
+        "status": "validated_and_ready",
+        "positive_prompt": optimized.positive,
+        "negative_prompt": optimized.negative,
+        "model": optimized.model,
+        "parameters": optimized.parameters,
+        "duration_seconds": shot.duration_seconds,
+        "tension_level": shot.tension_level,
+        "narrative_beat": shot.narrative_beat,
+    }
+    if shot.i2v_source_url:
+        result["i2v_source_url"] = shot.i2v_source_url
+    if validation.warnings:
+        result["warnings"] = [{
+            "field": w.field,
+            "message": w.message,
+        } for w in validation.warnings]
     return result
 
 

@@ -14,7 +14,58 @@ from __future__ import annotations
 
 from auteur.agents.cinematographer import CinematographerAgent
 from auteur.knowledge.ontology import ShotSpec
+from auteur.knowledge.project import CharacterSpec, MusicVideoBrief
 from auteur.pipeline.sequence import SequenceSpec
+
+
+# ---------------------------------------------------------------------------
+# Music video dramatic structure
+# ---------------------------------------------------------------------------
+
+# 9-beat Aristotelian arc mapped to song sections.
+# (act, beat_label, default_section, tension_level, pacing_template)
+MUSIC_VIDEO_BEAT_STRUCTURE: list[tuple[int, str, str, float, str]] = [
+    (1, "opening_image",    "intro",      0.15, "establishing_to_intimate"),
+    (1, "inciting_rupture", "verse_1",    0.35, "dialogue_scene"),
+    (2, "pursuit",          "verse_2",    0.50, "dialogue_scene"),
+    (2, "pre_chorus_doubt", "pre_chorus", 0.65, "tension_build"),
+    (2, "chorus_eruption",  "chorus_1",   0.82, "action_sequence"),
+    (2, "reversal",         "verse_3",    0.55, "reveal"),
+    (3, "climax",           "bridge",     1.00, "tension_build"),
+    (3, "consequence",      "chorus_2",   0.75, "action_sequence"),
+    (3, "resolution",       "outro",      0.20, "establishing_to_intimate"),
+]
+
+
+def tension_to_duration(tension: float, section: str) -> float:
+    """Map tension level + song section to shot duration in seconds.
+
+    Pacing contract:
+    - Bridge: 12–18s (the held breath — single long take)
+    - Intro/outro: 8–12s (breathing room)
+    - Verses: 6–9s at low tension, shorter as tension rises
+    - Chorus: 2.5–5s (kinetic, each cut earns its place)
+    - Climax burst (tension >= 0.9): 2–3s rapid cuts
+    """
+    # Certain sections override pure tension-based duration
+    section_overrides: dict[str, float] = {
+        "bridge": 15.0,
+        "outro": 10.0,
+        "intro": 10.0,
+    }
+    if section in section_overrides:
+        return section_overrides[section]
+
+    # Tension-driven duration curve
+    if tension >= 0.9:
+        return 2.5
+    if tension >= 0.75:
+        return 4.0
+    if tension >= 0.55:
+        return 6.0
+    if tension >= 0.35:
+        return 8.0
+    return 11.0
 
 
 # Pacing templates — common shot-flow patterns
@@ -135,6 +186,68 @@ class DirectorAgent:
         Passes all kwargs to CinematographerAgent.compose_shot().
         """
         return self._dp.compose_shot(description, **kwargs)
+
+    def plan_music_video(
+        self,
+        scene_description: str,
+        *,
+        brief: MusicVideoBrief | None = None,
+        song_sections: list[str] | None = None,
+        protagonist_id: str = "",
+        style: str = "",
+        mood: str = "",
+        model: str = "kling-3.0",
+    ) -> list[SequenceSpec]:
+        """Plan a full music video using the 9-beat dramatic arc.
+
+        Each beat maps to a song section and produces a SequenceSpec with
+        tension-driven pacing. Every ShotSpec gets tension_level,
+        duration_seconds, narrative_beat, and character_id stamped.
+
+        Args:
+            scene_description: Overall scene/world description.
+            brief: MusicVideoBrief for character and section info.
+            song_sections: Override beat→section mapping (len must match 9 beats).
+            protagonist_id: CharacterSpec.character_id for the protagonist.
+            style: DP style profile.
+            mood: Overall emotional tone.
+            model: Target generation model.
+
+        Returns:
+            List of SequenceSpec — one per beat.
+        """
+        effective_style = style or self._style
+        sections = song_sections or [b[2] for b in MUSIC_VIDEO_BEAT_STRUCTURE]
+        char_id = protagonist_id
+        if not char_id and brief:
+            char_id = brief.protagonist.character_id
+
+        sequences: list[SequenceSpec] = []
+        for i, (act, beat_label, default_section, tension, pacing) in enumerate(MUSIC_VIDEO_BEAT_STRUCTURE):
+            section = sections[i] if i < len(sections) else default_section
+            duration = tension_to_duration(tension, section)
+
+            seq = self.plan_sequence(
+                f"{scene_description}, {beat_label.replace('_', ' ')}",
+                pacing=pacing,
+                style=effective_style,
+                mood=mood,
+                model=model,
+            )
+
+            # Stamp dramatic metadata onto every shot in the sequence
+            for shot in seq.shots:
+                shot.narrative_beat = beat_label
+                shot.tension_level = tension
+                shot.duration_seconds = duration
+                if char_id:
+                    shot.character_id = char_id
+                shot.animate = True
+
+            seq.name = f"Act {act} / Beat {i + 1}: {beat_label} ({section})"
+            sequences.append(seq)
+
+        return sequences
 
     @staticmethod
     def list_pacing_templates() -> list[str]:
