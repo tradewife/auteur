@@ -1,151 +1,142 @@
 # AUTEUR
 
-Deep cinematography intelligence for AI generation agents.
+AUTEUR is an MCP server for cinematic authorship. It turns any AI agent into a directing intelligence capable of shaping films, music videos, and other visually structured narratives from a brief, a lyric, or a single line of intent.
 
-## What is AUTEUR?
+It is not a clip assembler. It is not a prompt wrapper. AUTEUR treats generation as filmmaking: dramatic architecture, character continuity, embodied performance, and a camera package that reads like something a working cinematographer would recognize.
 
-AUTEUR is a code-first cinematography agent system. It encodes professional-grade filmmaking knowledge — the kind that lives in a DP's head after 20 years on set — into composable Pydantic data models, then uses that knowledge to generate precise, cinematic prompts for AI image and video generation.
+Give it a sentence, a lyric, a character sketch, a mood reference, or a visual thesis, and it composes the rest with increasing autonomy. The more context you provide, the more control you retain. The less you provide, the more AUTEUR must infer. In either mode, every shot passes through the same pipeline: Aristotelian structure, Meisner-informed acting grammar, cathartic prompt language, and auteur-level cinematography, validated before anything reaches a generation model.
 
-It runs as an **MCP server**, so any MCP-compatible client (Claude, Cursor, GPT, custom agents) can use AUTEUR as a conversational co-director.
+This is experimental. The craft it encodes is not.
 
-## Architecture
+## The Pipeline
 
-### Knowledge System
-A deep cinematography ontology spanning every visual dimension:
+Every shot flows through a single data structure called `ShotSpec`. It carries the story, the character, the behavior, the tension level, the camera package, and the visual language from the moment of creative intent to the moment of generation. Nothing bypasses it. Nothing reaches a video model without passing through the full stack.
 
-- **Lenses** — Focal length psychology, named families (Cooke S4, Zeiss Master Prime, Panavision Primo), anamorphic/vintage character, bokeh profiles
-- **Lighting** — Named setups (Rembrandt, butterfly, noir, split), color temperatures, light quality, atmospheric effects
-- **Color** — Palettes, grading profiles (teal-orange, bleach bypass), emotional color mapping, harmony systems
-- **Composition** — Shot sizes, angles, framing devices, depth of field, negative space, rule systems
-- **Movement** — Camera movement types with philosophy and narrative purpose, stabilization methods
-- **Film stocks & sensors** — Kodak/Fuji film stocks, ARRI/RED/Sony sensor profiles, grain character, dynamic range
-- **Camera systems** — Sensor formats (Super 16 through IMAX), frame rates, aspect ratios
+The stack, in order:
 
-All encoded as composable Pydantic models in `auteur/knowledge/`.
+**1. Dramatic architecture.**
+A nine-beat Aristotelian arc maps song sections, scenes, or narrative movements to structural beats. `tension_to_duration()` converts tension into shot length: shorter at the climax, longer in passages that need room to breathe. Rhythm is designed, not inherited.
 
-### Style Profiles — Master DP Signatures
-Four complete auteur profiles with technical specificity:
+**2. Character and casting.**
+`CharacterSpec` locks a protagonist's physical description, wardrobe, signature behavior, and core desire across every shot. `MusicVideoBrief` enforces casting continuity where relevant, so the visual field remains coherent from opening frame to final cut.
 
-- **Roger Deakins** — Motivated single-source, controlled shadows, restrained naturalism
-- **Vittorio Storaro** — Symbolic colored light, bold saturation, operatic movement
-- **Emmanuel Lubezki** — Natural light obsession, golden hour, long-take immersion
-- **Hoyte van Hoytema** — IMAX large format, photochemical texture, overwhelming scale
+**3. Acting grammar.**
+Every character shot carries a `meisner_note`. One sentence. Visible physical behavior. No emotional abstraction. "She presses her palm flat against the glass and does not look at him" passes validation. "She looks sad" does not. The sanitiser enforces this programmatically.
 
-### Auteur Layer
-Users never need to pick from presets. They describe what they want in any terms — mood, vibes, references, colors, anything:
+**4. Soul Lexicon.**
+Before any shot is composed, the system builds a small vocabulary of phrases derived from the protagonist's wound. Sensory. Specific. Alive to texture. These phrases are woven into key beats by the prompt composer, giving the film a coherent emotional frequency that no isolated prompt would contain on its own.
 
-> "rainy Tokyo night, lonely figure under neon signs"
+**5. Auteur Layer.**
+A freeform style description is analyzed across perceptual dimensions such as mood, lighting, color, movement, and texture, then scored against four master cinematographer profiles. Their techniques blend into the prompt according to the weight each earns. DP names do not appear in the output; what appears is the consequence of their methods.
 
-The **Auteur Layer** analyzes this across five perceptual dimensions (mood, lighting, color, movement, texture), scores each master DP's relevance, and blends their techniques into the prompt invisibly:
+> rainy Tokyo night, lonely figure under neon signs
+> -> Deakins 40% (shadow control, isolation) + Storaro 29% (neon color, bold light)
 
-→ Deakins 40% (shadow control, isolation) + Storaro 29% (neon color, bold light)
+**6. Prompt composition.**
+Eight layers are assembled in attention-priority order: subject, composition, lighting, camera, color, texture, movement, style. Each layer draws from a deep cinematography ontology covering lens psychology, lighting setups, grading profiles, and film-stock character, then is optimized per model across 55+ generation models.
 
-The `auteur_weight` parameter (0.0–1.0) controls enrichment intensity. The user sees a better prompt — they never have to know which DPs were blended in.
+**7. Enforcement gate.**
+`sanitise_and_submit` is the only valid path to generation. It validates that the visual language is locked, the `meisner_note` is present, the camera package is specified, and no banned tokens survived. It strips genre labels, dead emotional words, transcendence cliches, and prompt padding. If any check fails, it returns actionable errors instead of a prompt. The system cannot produce garbage even if the agent tries to shortcut.
 
-### Prompt Engine
-The prompt composer works in ordered layers (subject → composition → lighting → camera → color → texture → movement → style → mood), because token position maps to model attention. Each layer is assembled from the ontology models, then the whole prompt is optimized per-model with format limits, boosters, and negative keywords.
+## The Auteur Layer
 
-Model-specific optimization for 55+ models across three providers.
+Four complete DP profiles with technical specificity:
 
-### Generation Pipeline
-Unified API layer with queue management, asset tracking, and provider routing:
+- **Roger Deakins**: motivated single-source, controlled shadows, restrained naturalism.
+- **Vittorio Storaro**: symbolic colored light, bold saturation, operatic movement.
+- **Emmanuel Lubezki**: natural light obsession, golden hour, long-take immersion.
+- **Hoyte van Hoytema**: IMAX large format, photochemical texture, overwhelming scale.
 
-- **FAL** (32 models) — Flux 2 Flex, Nano Banana 2/Pro, Veo 3/3.1, Kling 3.0/O3, Sora 2 Pro, Grok Imagine, LTX-2 19B, Wan 2.6, Seedance 1.5, Cosmos 2.5, Recraft V4, Seedream, Hunyuan, and more
-- **Kie.ai** (15 models) — Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, Nano Banana 2/Pro, GPT Image 1.5, Flux Kontext, and more
-- **Gemini** (8 models) — Imagen 4 Standard/Ultra/Fast, Nano Banana 2, Veo 3
+## The Beat Structure
 
-### Creative Agents
-- **CinematographerAgent** — Translates narrative intent into complete `ShotSpec` technical specifications
-- **DirectorAgent** — Plans multi-shot sequences using pacing templates (establishing-to-intimate, tension build, action, dialogue, reveal)
-
-### MCP Server
-10 tools, 9 resources, 3 prompt templates exposed via FastMCP:
-
-**Tools:** `analyse_brief`, `propose_visual_language`, `plan_shots`, `compose_prompt`, `refine_shot`, `define_style`, `quick_compose`, `provider_status`, `list_pacing_templates`, `get_project`
-
-**Resources:** `auteur://styles`, `auteur://lenses`, `auteur://lighting`, `auteur://palettes`, `auteur://movements`, `auteur://stocks`, `auteur://templates`, `auteur://camera`, `auteur://lens-families`
-
-## Quick Start
-
-```bash
-pip install -e ".[dev]"
-cp .env.example .env  # Add your API keys
-auteur --help
+```text
+Beat 1: opening_image    | intro      | tension 0.15 | 10.0s
+Beat 2: inciting_rupture | verse_1    | tension 0.35 |  8.0s
+Beat 3: pursuit          | verse_2    | tension 0.50 |  8.0s
+Beat 4: pre_chorus_doubt | pre_chorus | tension 0.65 |  6.0s
+Beat 5: chorus_eruption  | chorus_1   | tension 0.82 |  4.0s
+Beat 6: reversal         | verse_3    | tension 0.55 |  6.0s
+Beat 7: climax           | bridge     | tension 1.00 | 15.0s
+Beat 8: consequence      | chorus_2   | tension 0.75 |  4.0s
+Beat 9: resolution       | outro      | tension 0.20 | 10.0s
 ```
 
-### MCP Server
+## Skill Documents
 
-```bash
-# stdio (for Claude Desktop, Cursor, etc.)
-auteur serve --transport stdio
+Three craft documents in `auteur/knowledge/skills/` operationalize filmmaking disciplines as generative constraints:
 
-# SSE (for web clients)
-auteur serve --transport sse --port 8000
+- **STORYTELLER.md**: Aristotelian dramatic action. The three questions every shot must answer: what is wanted, what resists it, and what changes.
+- **ACTORS_HANDBOOK.md**: Meisner method for AI characters. Physical action, relational focus, proxemic behavior, and scene pressure.
+- **SOUL_LEXICON.md**: Cathartic image philosophy. The difference between decoration and revelation. How language becomes image instead of explanation.
+
+## MCP Integration
+
+AUTEUR exposes a complete MCP interface for directed generation. Any MCP-compatible client, including Claude, Cursor, and custom agents, can connect directly.
+
+### Music Video Workflow
+
+```text
+1. analyse_brief              capture creative intent
+2. set MusicVideoBrief        singer, protagonist, soul_lexicon, forbidden_words
+3. propose_visual_language    lock AestheticStyle via AuteurLayer
+4. plan_music_video           nine-beat arc with tension-driven pacing
+5. generate_hero_shots        character portraits with full enrichment
+6. sanitise_and_submit        enforce, validate, compose, optimize per shot
 ```
 
-### Quick Compose (no project needed)
+### Quick Compose
 
-Via MCP tool call:
 ```json
 {
   "tool": "quick_compose",
   "arguments": {
-    "description": "a lone woman walking through a rain-soaked alley at night",
-    "style_description": "neon-drenched urban noir, isolated and melancholy",
+    "description": "a woman pressing her palm flat against cold glass, not looking at the man behind it",
+    "style_description": "warm amber key light from a single window, shallow focus, rain on the exterior",
     "model": "kling-3.0"
   }
 }
 ```
 
-### Full Workflow
+## Generation Providers
 
-1. `analyse_brief` — Parse creative intent into a structured project
-2. `propose_visual_language` — Describe the look (freeform), AUTEUR enriches with auteur depth
-3. `plan_shots` — Generate a shot list using pacing templates
-4. `compose_prompt` — Get model-optimized prompts for each shot
-5. `refine_shot` — Adjust individual shots as needed
+Model-agnostic. 55+ models across three providers, routed through a single ontology:
 
-## API Keys
+- **Kie.ai**: Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, GPT Image 1.5, Flux Kontext.
+- **FAL**: Veo 3/3.1, Kling 3.0, Sora 2 Pro, Flux 2 Flex, Nano Banana 2/Pro, LTX-2 19B.
+- **Gemini**: Imagen 4, Veo 3.
 
-| Provider | Get your key |
-|----------|-------------|
-| FAL | https://fal.ai/dashboard/keys |
-| Kie.ai | https://kie.ai (dashboard → API key) |
-| Gemini | https://aistudio.google.com/apikey |
+The intelligence layer is independent of the generation layer. Swap models without changing how the film is designed.
+
+## Quick Start
+
+```bash
+pip install -e ".[dev]"
+cp .env.example .env  # FAL_KEY, KIE_API_KEY, GEMINI_API_KEY
+auteur serve --transport stdio
+```
 
 ## Project Structure
 
-```
+```text
 auteur/
-├── knowledge/           # Cinematography ontology
-│   ├── ontology.py      # Core data models (ShotSpec, LensSpec, etc.)
-│   ├── styles/          # DP profiles + Auteur Layer
-│   │   ├── aesthetic.py  # AestheticStyle + AuteurLayer
-│   │   ├── deakins.py
-│   │   ├── storaro.py
-│   │   ├── lubezki.py
-│   │   └── hoytema.py
-│   ├── lens.py, lighting.py, color.py, composition.py,
-│   │   movement.py, film_stock.py, camera.py
-│   └── project.py       # Project/Brief/VisualLanguage models
-├── prompt/              # Prompt engineering
-│   ├── composer.py      # Layered prompt assembly
-│   ├── optimizer.py     # Per-model optimization (55+ models)
-│   ├── negative.py      # Negative prompt library
-│   └── templates.py     # Shot templates
-├── providers/           # API integrations
-│   ├── fal.py           # 32 models
-│   ├── kie.py           # 15 models
-│   ├── gemini.py        # 8 models
-│   └── registry.py      # Model routing
-├── pipeline/            # Generation pipeline
-│   ├── shot.py, sequence.py, assets.py
-├── agents/              # Creative agents
-│   ├── cinematographer.py
-│   └── director.py
-├── server.py            # MCP server (FastMCP)
-├── cli.py               # CLI (Typer)
-└── config.py            # Settings
+├── knowledge/
+│   ├── ontology.py          # ShotSpec and the full cinematography ontology
+│   ├── project.py           # Project, CharacterSpec, MusicVideoBrief
+│   ├── styles/              # 4 DP profiles, AestheticStyle, AuteurLayer
+│   ├── skills/              # STORYTELLER, ACTORS_HANDBOOK, SOUL_LEXICON
+│   └── lens, lighting, color, composition, movement, film_stock, camera
+├── prompt/
+│   ├── composer.py          # 8-layer prompt assembly with Soul-Lexicon catalyst
+│   ├── sanitiser.py         # Enforcement gate
+│   ├── optimizer.py         # Per-model optimization (55+ models)
+│   └── negative.py, templates.py
+├── agents/
+│   ├── director.py          # 9-beat arc, tension_to_duration, plan_music_video
+│   └── cinematographer.py   # Narrative intent to ShotSpec
+├── providers/               # Kie.ai, FAL, Gemini, unified registry
+├── pipeline/                # Shot and sequence execution, asset tracking
+├── server.py                # MCP server (13 tools, 9 resources)
+└── config.py
 ```
 
 ## License
