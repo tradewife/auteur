@@ -1,0 +1,14 @@
+.venv/
+.git/
+output/
+take-me-to-sol/
+auteur-v1-notes/
+.browser_state/
+*.mp4
+*.png
+*.jpg
+*.jpeg
+perplexity-chat.md
+browser-use-plan.md
+.env
+__pycache__/

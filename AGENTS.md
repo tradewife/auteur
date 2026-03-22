@@ -3,10 +3,51 @@
 ## Project Summary
 AUTEUR is a cinematography intelligence system for AI generation agents. It encodes deep filmmaking knowledge — dramatic architecture (Aristotelian beat structure), Meisner-method acting grammar, cathartic language philosophy (Godmode), and a 4-DP auteur enrichment layer — into composable Pydantic models and exposes everything via an MCP server.
 
-**Repo:** `/home/kt/cineforge` (local) / `https://github.com/tradewife/auteur.git` (remote)
+**Repo:** `~/AUTEUR` (local) / `https://github.com/tradewife/auteur.git` (remote)
+**Onchain:** `~/0xAUTEUR` (local) / `https://github.com/tradewife/0xAUTEUR.git` (remote)
 **Branch:** `master`
 **Python:** 3.12, venv at `.venv/` — always use `.venv/bin/python3` or activate first
-**Package:** `auteur/` (was `cineforge/` — renamed in this session)
+**Package:** `auteur/`
+
+## Deployment
+
+### MCP Server (Railway)
+- **Public endpoint:** `https://auteur-mcp-production.up.railway.app/mcp`
+- **Transport:** Streamable HTTP
+- **Railway project:** `auteur-mcp` (107fcd42-f321-48c4-8d62-f115fb0e9cdf)
+- **Deploy from:** `~/AUTEUR` with `railway up --service auteur-mcp`
+
+### Onchain Contracts (Base Sepolia)
+| Contract | Address |
+|----------|---------|
+| auteur.sol (payment) | `0x4473350125F66FC17988589A9a948514866bfdE3` |
+| auteuragent.sol (ERC-8183) | `0xc7cAF559a5cF8a3C85cA9acEE4A0010e666871B3` |
+| 0xAUTEUR Shot (Rare ERC-721) | `0x24D258b4249051Dbfa06b1526Bf847062562f126` |
+| Rare Auction | `0x1f0c946f0ee87acb268d50ede6c9b4d010af65d2` |
+
+### KIE Model Configuration
+| Role | Model | Env Var |
+|------|-------|---------|
+| Main Image | Nano Banana 2 | `KIE_IMAGE_MODEL_MAIN` |
+| Main Video | Kling 3.0 | `KIE_VIDEO_MODEL_MAIN` |
+| Judge Image | Qwen Image 2.0 | `KIE_IMAGE_MODEL_JUDGE` |
+| Judge Video | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
+
+### x402 Payment Flow
+1. Client sends request with `Accept: application/json` to AUTEUR MCP endpoint
+2. Server returns HTTP 402 with payment-required metadata (invoice, amount)
+3. Client pays via onchain 0xAUTEUR `spend()` — TX hash becomes proof-of-payment
+4. Client retries request with payment proof in header
+5. Server validates spend receipt via `getLog()`, then fulfills the generation request
+6. SpendReceipt event emitted onchain with CID fields linking to output
+
+### ERC-8183 Agent-to-Agent Job Lifecycle
+1. **Client** calls `createJob(requestService)` on AuteurAgent — defines scope and reward
+2. **Client** calls `fundJob()` — locks ETH in escrow (evaluator gets stake, agent gets reward)
+3. **Agent** (AUTEUR) generates the ShotSpec, composes prompt, calls generation provider
+4. **Agent** calls `submitWork()` — delivers result CID as proof of work
+5. **Evaluator** reviews output quality against brief requirements
+6. **Evaluator** calls `completeJob()` — releases escrow to agent, attestations stored onchain
 
 ## What's Built (all working, validated)
 

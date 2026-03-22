@@ -179,3 +179,36 @@ auteur/
 ## License
 
 MIT
+
+## Deployment
+
+### MCP Server (Railway)
+
+Public endpoint — reachable by any MCP-compatible client:
+
+```
+https://auteur-mcp-production.up.railway.app/mcp
+```
+
+Transport: Streamable HTTP. Deployed from this repo via `railway up --service auteur-mcp`.
+
+### Generation Model Configuration
+
+| Role | Provider | Model | Env Var |
+|------|----------|-------|---------|
+| Main Image | Kie.ai | Nano Banana 2 | `KIE_IMAGE_MODEL_MAIN` |
+| Main Video | Kie.ai | Kling 3.0 | `KIE_VIDEO_MODEL_MAIN` |
+| Judge Image | Kie.ai | Qwen Image 2.0 | `KIE_IMAGE_MODEL_JUDGE` |
+| Judge Video | Kie.ai | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
+
+Additional providers available: FAL (55+ models), Gemini (8 models), Browser Use (x.com/grok).
+
+### Onchain Integration (0xAUTEUR)
+
+AUTEUR's generated output connects to the Ethereum ecosystem via the [0xAUTEUR repo](https://github.com/tradewife/0xAUTEUR):
+
+- **Payment:** 0xAUTEUR.sol `spend()` — generates SpendReceipt events with CID fields
+- **Minting:** Rare Protocol CLI → IPFS pin → ERC-721 NFT on Base Sepolia
+- **Agent Commerce:** AuteurAgent (ERC-8183) — `createJob → fundJob → submitWork → completeJob`
+
+See [0xAUTEUR/README.md](https://github.com/tradewife/0xAUTEUR) for contract addresses, TX hashes, and full onchain architecture.

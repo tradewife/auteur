@@ -795,6 +795,106 @@ def sanitise_and_submit(
 
 
 @mcp.tool
+async def generate_video(
+    project_id: str,
+    scene_index: int = 0,
+    shot_index: int = 0,
+    model: str = "kling-3.0",
+) -> dict:
+    """THE enforcement gate — validate, sanitise, then generate video.
+
+    This is the ONLY valid path to video generation in the AUTEUR pipeline.
+    Calls sanitise_and_submit for validation, then routes to the best
+    available provider (FAL, KIE, Gemini) to produce a video clip.
+
+    Returns the video URL on success, or validation errors on failure.
+    Never bypass this gate — all generation must pass through it.
+    """
+    # Step 1: Validate and sanitise
+    project = _projects.get(project_id)
+    if not project:
+        return {"error": f"Project {project_id} not found"}
+
+    if scene_index >= len(project.scenes):
+        return {"error": f"Scene {scene_index} not found (have {len(project.scenes)} scenes)"}
+    scene = project.scenes[scene_index]
+    if shot_index >= len(scene.shots):
+        return {"error": f"Shot {shot_index} not found (have {len(scene.shots)} shots)"}
+
+    shot = scene.shots[shot_index]
+    brief = project.music_video_brief
+
+    # Compose + validate
+    from auteur.prompt.composer import PromptComposer
+    from auteur.prompt.optimizer import PromptOptimizer, OptimizedPrompt
+    from auteur.prompt.sanitiser import validate_shot, strip_banned_tokens
+
+    soul_lexicon = brief.soul_lexicon if brief else None
+    composed = PromptComposer.compose(shot, soul_lexicon=soul_lexicon)
+    extra_banned = brief.forbidden_words if brief else None
+    validation = validate_shot(shot, composed.positive, extra_banned)
+
+    if not validation.passed:
+        return {
+            "status": "validation_failed",
+            "errors": [{"field": i.field, "message": i.message} for i in validation.errors],
+        }
+
+    cleaned_positive = strip_banned_tokens(composed.positive, extra_banned)
+    target = model or project.target_model
+    optimized = PromptOptimizer.optimize(
+        cleaned_positive,
+        composed.negative,
+        model=target,
+        aspect_ratio=shot.composition.aspect_ratio.value,
+        duration_s=shot.duration_seconds if shot.animate else None,
+    )
+
+    # Step 2: Route to provider and generate
+    from auteur.providers.registry import ProviderRegistry
+    from auteur.providers.base import GenerationRequest, GenerationType
+
+    registry = ProviderRegistry()
+    gen_type = GenerationType.VIDEO
+    if shot.i2v_source_url:
+        gen_type = GenerationType.IMAGE_TO_VIDEO
+
+    request = GenerationRequest(
+        prompt=optimized,
+        generation_type=gen_type,
+        source_image_url=shot.i2v_source_url or "",
+        metadata={
+            "project_id": project_id,
+            "scene_index": scene_index,
+            "shot_index": shot_index,
+        },
+    )
+
+    result = await registry.generate(request)
+
+    if not result.success:
+        return {
+            "status": "generation_failed",
+            "provider": result.provider,
+            "model": result.model,
+            "error": result.error,
+        }
+
+    return {
+        "status": "generated",
+        "video_url": result.url,
+        "provider": result.provider,
+        "model": result.model,
+        "positive_prompt": optimized.positive,
+        "negative_prompt": optimized.negative,
+        "parameters": optimized.parameters,
+        "duration_seconds": shot.duration_seconds,
+        "tension_level": shot.tension_level,
+        "narrative_beat": shot.narrative_beat,
+    }
+
+
+@mcp.tool
 def provider_status() -> dict:
     """Show which generation providers are configured and available."""
     from auteur.providers.registry import ProviderRegistry
