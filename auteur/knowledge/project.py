@@ -130,7 +130,7 @@ class Brief(BaseModel):
     logline: str = Field(description="One-sentence summary of the film/sequence")
     description: str = Field(default="", description="Expanded creative intent")
     mood: str = Field(default="", description="Emotional tone (e.g., 'melancholy', 'tense', 'triumphant')")
-    duration_seconds: int = Field(default=30, description="Target duration in seconds")
+    duration_seconds: int = Field(default=45, description="Target duration in seconds (9 beats × 5s)")
     references: list[str] = Field(
         default_factory=list,
         description="Reference films, scenes, or visual inspirations",

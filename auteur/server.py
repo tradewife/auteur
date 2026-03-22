@@ -166,7 +166,7 @@ def analyse_brief(
     logline: str,
     description: str = "",
     mood: str = "",
-    duration_seconds: int = 30,
+    duration_seconds: int = 45,  # 9 beats × 5s — set by arc, not user
     references: list[str] | None = None,
     constraints: list[str] | None = None,
 ) -> dict:
@@ -985,7 +985,7 @@ def character_portrait(character_description: str, emotion: str = "neutral") -> 
 
 
 @mcp.prompt
-def plan_mood_film(brief: str, duration_seconds: int = 30) -> str:
+def plan_mood_film(brief: str, duration_seconds: int = 45) -> str:
     """Guide the LLM through the full AUTEUR planning workflow."""
     return (
         f"Let's plan a {duration_seconds}-second mood film.\n"

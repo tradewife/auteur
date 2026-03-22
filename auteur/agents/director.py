@@ -22,6 +22,12 @@ from auteur.pipeline.sequence import SequenceSpec
 # Music video dramatic structure
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Pipeline defaults — the arc decides, not the user
+# ---------------------------------------------------------------------------
+DEFAULT_BEATS: int = 9  # Full Aristotelian dramatic arc
+DEFAULT_CLIP_DURATION: float = 5.0  # Seconds per beat — 9 × 5 = 45s total
+
 # 9-beat Aristotelian arc mapped to song sections.
 # (act, beat_label, default_section, tension_level, pacing_template)
 MUSIC_VIDEO_BEAT_STRUCTURE: list[tuple[int, str, str, float, str]] = [
@@ -38,34 +44,16 @@ MUSIC_VIDEO_BEAT_STRUCTURE: list[tuple[int, str, str, float, str]] = [
 
 
 def tension_to_duration(tension: float, section: str) -> float:
-    """Map tension level + song section to shot duration in seconds.
+    """Return the fixed clip duration for every beat.
 
-    Pacing contract:
-    - Bridge: 12–18s (the held breath — single long take)
-    - Intro/outro: 8–12s (breathing room)
-    - Verses: 6–9s at low tension, shorter as tension rises
-    - Chorus: 2.5–5s (kinetic, each cut earns its place)
-    - Climax burst (tension >= 0.9): 2–3s rapid cuts
+    Duration is decided by the arc, not the user. Every beat gets
+    DEFAULT_CLIP_DURATION seconds.  Tension still drives cut rhythm
+    and pacing template selection, but all clips are uniform length
+    so total output is always DEFAULT_BEATS × DEFAULT_CLIP_DURATION.
+
+    Returns DEFAULT_CLIP_DURATION (5.0s by default).
     """
-    # Certain sections override pure tension-based duration
-    section_overrides: dict[str, float] = {
-        "bridge": 15.0,
-        "outro": 10.0,
-        "intro": 10.0,
-    }
-    if section in section_overrides:
-        return section_overrides[section]
-
-    # Tension-driven duration curve
-    if tension >= 0.9:
-        return 2.5
-    if tension >= 0.75:
-        return 4.0
-    if tension >= 0.55:
-        return 6.0
-    if tension >= 0.35:
-        return 8.0
-    return 11.0
+    return DEFAULT_CLIP_DURATION
 
 
 # Pacing templates — common shot-flow patterns

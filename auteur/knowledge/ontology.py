@@ -295,7 +295,7 @@ class ShotSpec(BaseModel):
     # Generation metadata
     target_model: str = Field(default="", description="Target generation model (e.g. 'flux-pro', 'veo3')")
     animate: bool = Field(default=False, description="Whether to animate after image generation")
-    duration_seconds: float = Field(default=6.0, description="Intended clip duration in seconds — set by pacing logic, not left at default")
+    duration_seconds: float = Field(default=5.0, description="Clip duration in seconds — set by arc pacing, not user-configurable")
     seed: int | None = Field(default=None, description="Seed for reproducibility")
 
     # Music video / dramatic fields
