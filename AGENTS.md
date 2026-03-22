@@ -22,11 +22,10 @@ AUTEUR is a cinematography intelligence system for AI generation agents. It enco
 |----------|---------|
 | auteur.sol (payment) | `0x4473350125F66FC17988589A9a948514866bfdE3` |
 | auteuragent.sol (ERC-8183) | `0xc7cAF559a5cF8a3C85cA9acEE4A0010e666871B3` |
-| 0xAUTEUR Shot (ERC-721) | `0x24D258b4249051Dbfa06b1526Bf847062562f126` |
-| RareProtocolMock (SuperRare track) | `0xA530eb2F308BC6D7810eF73d8103ff9123630Cb4` |
-| Rare Auction | `0x1f0c946f0ee87acb268d50ede6c9b4d010af65d2` |
+| 0xAUTEUR Shot (ERC-721, Rare Protocol) | `0x24D258b4249051Dbfa06b1526Bf847062562f126` |
+| RareProtocolMock (standalone) | `0xA530eb2F308BC6D7810eF73d8103ff9123630Cb4` |
 
-**Note on Rare Protocol:** Rare Protocol has no public testnet deployment. `RareProtocolMock` implements the same interface (`mint(address, string, bytes) → uint256`, `Minted` event, `totalSupply()`, `tokenURI()`) as a standalone ERC-721 on Base Sepolia for hackathon demonstration purposes.
+**Rare Protocol integration:** The ShotNFT (`0x24D258b4249051Dbfa06b1526Bf847062562f126`) is registered with Rare Protocol via `rare import erc721` on Base Sepolia. Minting works via the `rare` CLI (`rare mint --contract 0x... --token-uri ... --chain base-sepolia`). Verified mint: TX `0xcd926b9a989042ef4bcba11b32e86a20f30f6db313e6988506b8248c72d83456` (Token ID #3). Rare Protocol docs: https://rare.xyz/docs. Rare Protocol Factory on Ethereum Sepolia: `0x3c7526a0975156299ceef369b8ff3c01cc670523`. On Base Sepolia, only wallet+search+status+import+mint are supported (no factory deploy). Collections are deployed separately via Foundry and imported with `rare import erc721`.
 
 ### KIE Model Configuration
 | Role | Model | Env Var |
