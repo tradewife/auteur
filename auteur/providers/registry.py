@@ -15,6 +15,7 @@ from auteur.providers.base import (
 from auteur.providers.fal import FalProvider
 from auteur.providers.kie import KieProvider
 from auteur.providers.gemini import GeminiProvider
+from auteur.providers.browser_use import BrowserUseProvider
 
 
 # Default model routing — model → preferred provider order
@@ -77,6 +78,8 @@ _MODEL_ROUTING: dict[str, list[str]] = {
     "grok-video-i2v": ["fal"],
     "ltx-2-i2v": ["fal"],
     "svd": ["fal"],
+    # ── Browser-automated platforms ────────────────────────────────
+    "grok-imagine-web": ["browser_use"],
 }
 
 
@@ -95,6 +98,7 @@ class ProviderRegistry:
         self._providers["fal"] = FalProvider()
         self._providers["kie"] = KieProvider()
         self._providers["gemini"] = GeminiProvider()
+        self._providers["browser_use"] = BrowserUseProvider()
 
     @property
     def available_providers(self) -> dict[str, GenerationProvider]:

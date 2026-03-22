@@ -15,8 +15,21 @@ class Settings(BaseSettings):
     kie_api_key: str = ""
     gemini_api_key: str = ""
 
+    # Browser automation
+    browser_use_enabled: bool = False
+    browser_use_api_key: str = ""
+    browser_executable_path: str = ""
+    browser_storage_state_dir: Path = Path("./.browser_state")
+    browser_artifact_dir: Path = Path("./output/browser_ops")
+
     # Output
     auteur_output_dir: Path = Path("./output")
+
+    @property
+    def has_browser_use(self) -> bool:
+        return self.browser_use_enabled and (
+            bool(self.browser_use_api_key) or bool(self.gemini_api_key)
+        )
 
     @property
     def has_fal(self) -> bool:

@@ -31,6 +31,10 @@ class GenerationRequest(BaseModel):
     width: int = Field(default=0, description="Override width (0 = model default)")
     height: int = Field(default=0, description="Override height (0 = model default)")
     seed: int | None = Field(default=None, description="Seed for reproducibility")
+    metadata: dict = Field(
+        default_factory=dict,
+        description="Extra request metadata (browser account key, platform options, etc.)",
+    )
 
 
 class GenerationResult(BaseModel):

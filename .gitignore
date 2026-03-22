@@ -12,4 +12,5 @@ output/
 *.jpeg
 .ruff_cache/
 .pytest_cache/
+.browser_state/
 perplexity-chat.md

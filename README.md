@@ -99,13 +99,37 @@ AUTEUR exposes a complete MCP interface for directed generation. Any MCP-compati
 
 ## Generation Providers
 
-Model-agnostic. 55+ models across three providers, routed through a single ontology:
+Model-agnostic. 55+ models across four providers, routed through a single ontology:
 
 - **Kie.ai**: Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, GPT Image 1.5, Flux Kontext.
 - **FAL**: Veo 3/3.1, Kling 3.0, Sora 2 Pro, Flux 2 Flex, Nano Banana 2/Pro, LTX-2 19B.
 - **Gemini**: Imagen 4, Veo 3.
+- **Browser Use**: Grok Imagine (web automation). Deterministic CLI fallback. Uses `browser-use` library with persistent daemon sessions for platforms without APIs.
 
 The intelligence layer is independent of the generation layer. Swap models without changing how the film is designed.
+
+## Browser Automation
+
+For platforms with no API (Grok Imagine, Runway, Pika), AUTEUR automates a real browser through `browser-use`. Two runner modes:
+
+**Agent runner** (default): An LLM agent drives the browser using natural-language task prompts. Three short phases — submit, poll for completion, collect outputs — avoid keeping the LLM in the loop during long renders.
+
+**CLI runner** (fallback): Deterministic command sequences via the `browser-use` CLI daemon. No LLM cost, fully scripted, but breaks when the UI changes. Set `metadata={"runner": "cli"}` on the generation request.
+
+Auth follows the gstack pattern — login is never the agent's job:
+
+```bash
+# Strategy 1: Manual headed login (opens browser, you log in, cookies saved)
+auteur browser-auth grok_imagine
+
+# Strategy 2: Grab cookies from your real Chrome profile
+auteur browser-grab grok_imagine --profile Default
+
+# Strategy 3: Import cookies from a JSON file (Chrome extension export, etc.)
+auteur browser-cookies grok_imagine cookies.json --domain .x.com
+```
+
+Browser platforms use a `-web` suffix to distinguish from API models: `grok-imagine-web`.
 
 ## Quick Start
 
@@ -113,6 +137,14 @@ The intelligence layer is independent of the generation layer. Swap models witho
 pip install -e ".[dev]"
 cp .env.example .env  # FAL_KEY, KIE_API_KEY, GEMINI_API_KEY
 auteur serve --transport stdio
+
+# Optional: browser automation for web-only platforms
+pip install browser-use playwright
+playwright install chromium
+# Bootstrap auth for a platform (one-time manual login)
+auteur browser-auth grok_imagine
+# Or grab cookies from your Chrome profile
+auteur browser-grab grok_imagine --profile Default
 ```
 
 ## Project Structure
@@ -133,9 +165,14 @@ auteur/
 ├── agents/
 │   ├── director.py          # 9-beat arc, tension_to_duration, plan_music_video
 │   └── cinematographer.py   # Narrative intent to ShotSpec
-├── providers/               # Kie.ai, FAL, Gemini, unified registry
+├── providers/               # Kie.ai, FAL, Gemini, Browser Use, unified registry
+├── browser_ops/
+│   ├── auth.py              # Auth bootstrap, cookie import, Chrome profile grab
+│   ├── runner.py            # LLM Agent runner (submit → poll → collect)
+│   ├── cli_runner.py        # Deterministic CLI fallback runner
+│   └── platforms/           # Per-platform specs (Grok Imagine, etc.)
 ├── pipeline/                # Shot and sequence execution, asset tracking
-├── server.py                # MCP server (13 tools, 9 resources)
+├── server.py                # MCP server (14 tools, 9 resources)
 └── config.py
 ```
 

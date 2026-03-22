@@ -51,6 +51,7 @@ Example: "rainy Tokyo night, lonely and neon-lit" → Deakins 40% + Storaro 29%
 - `kie.py` — `KieProvider`, 15 models. Image + video gen. Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, Nano Banana 2/Pro, GPT Image 1.5, Flux Kontext.
 - `gemini.py` — `GeminiProvider`, 8 models. Imagen 4 Standard/Ultra/Fast, Nano Banana 2, Veo 3.
 - `registry.py` — `ProviderRegistry` with 55+ model routing entries.
+- `browser_use.py` — `BrowserUseProvider`. Automates web platforms via browser-use + LLM agents. Routes to agent runner or CLI fallback. Model IDs: `grok-imagine-web`.
 
 ### 6. Pipeline (`auteur/pipeline/`)
 - `shot.py` — `ShotPipeline` (compose → optimize → generate)
@@ -62,7 +63,7 @@ Example: "rainy Tokyo night, lonely and neon-lit" → Deakins 40% + Storaro 29%
 - `director.py` — `DirectorAgent`. Plans multi-shot sequences via `PACING_TEMPLATES` (establishing_to_intimate, tension_build, action_sequence, dialogue_scene, reveal).
 
 ### 8. MCP Server (`auteur/server.py`)
-FastMCP 3.1.0. 10 tools, 9 resources, 3 prompts.
+FastMCP 3.1.0. 14 tools, 9 resources, 3 prompts.
 
 **Tools:**
 - `analyse_brief` — Creates a project from creative intent
@@ -75,16 +76,17 @@ FastMCP 3.1.0. 10 tools, 9 resources, 3 prompts.
 - `provider_status` — Provider/key status
 - `list_pacing_templates` — Available pacing templates
 - `get_project` — Project state
+- `browser_platforms` — List browser-automated platforms and auth status
 
 **Resources:** `auteur://styles`, `auteur://styles/{name}`, `auteur://lenses`, `auteur://lens-families`, `auteur://lighting`, `auteur://palettes`, `auteur://movements`, `auteur://stocks`, `auteur://templates`, `auteur://camera`
 
 **Prompts:** `establishing_shot`, `character_portrait`, `plan_mood_film`
 
 ### 9. CLI (`auteur/cli.py`)
-Typer-based: `auteur version`, `auteur status`, `auteur shot`, `auteur explore`, `auteur serve`
+Typer-based: `auteur version`, `auteur status`, `auteur shot`, `auteur explore`, `auteur browser-auth`, `auteur browser-cookies`, `auteur browser-grab`, `auteur browser-status`, `auteur serve`
 
 ### 10. Config (`auteur/config.py`)
-Pydantic Settings from `.env`: `fal_key`, `kie_api_key`, `gemini_api_key`, `auteur_output_dir`
+Pydantic Settings from `.env`: `fal_key`, `kie_api_key`, `gemini_api_key`, `auteur_output_dir`, `browser_use_enabled`, `browser_use_api_key`, `browser_executable_path`, `browser_storage_state_dir`, `browser_artifact_dir`
 
 ## Key Architecture Decisions
 - `ShotSpec` is the atomic unit — everything flows through it
@@ -93,6 +95,10 @@ Pydantic Settings from `.env`: `fal_key`, `kie_api_key`, `gemini_api_key`, `aute
 - MCP resource URIs use `auteur://` prefix
 - Projects are session-scoped in-memory (`_projects` dict in server.py)
 - Provider implementations use httpx async, models are dispatched via `_MODEL_MAP` dicts in each provider
+- Browser-automated platforms use `-web` suffix model IDs (e.g. `grok-imagine-web`) to avoid collision with API-backed models
+- Browser auth uses `storage_state` JSON (Playwright format) for cookie/localStorage persistence — never raw profile directory management
+- Browser runner uses 3-phase pattern (submit → poll → collect) with short Agent runs to avoid expensive long-lived LLM sessions
+- CLI deterministic runner is the fallback when LLM agent is too flaky — uses `browser-use` CLI daemon subprocess commands
 
 ## Validation Commands
 ```bash
@@ -128,6 +134,16 @@ composed = PromptComposer.compose(shot)
 opt = composed.optimize(model='veo3')
 print(opt.positive[:200])
 "
+
+# Test browser ops imports
+.venv/bin/python3 -c "
+from auteur.browser_ops.auth import make_account, import_cookies, has_auth
+from auteur.browser_ops.cli_runner import CLISession, CLI_SCRIPTS
+from auteur.browser_ops.platforms import PLATFORM_SPECS
+from auteur.providers.browser_use import BrowserUseProvider
+print('Browser ops:', list(PLATFORM_SPECS.keys()))
+print('CLI scripts:', list(CLI_SCRIPTS.keys()))
+"
 ```
 
 ## v1 — New Systems
@@ -162,6 +178,19 @@ print(opt.positive[:200])
 - `tension_level` — 0.0–1.0, drives duration and cut rhythm
 - `i2v_source_url` — Concept image URL for image-to-video
 - `duration_seconds` — Renamed from `animation_duration_s`, set by tension_to_duration()
+
+### Browser Automation (`auteur/browser_ops/`)
+- `auth.py` — Three auth strategies: existing `storage_state`, manual headed login (`bootstrap_auth`), cookie import (`import_cookies`). Also `bootstrap_via_cli_profile()` for grabbing cookies from a real Chrome profile. Uses Playwright `storage_state` JSON format (cookies + localStorage).
+- `runner.py` — LLM Agent runner. 3-phase pipeline: submit task → poll status → collect outputs. Each phase is a short `Agent(task=..., llm=..., browser=...)` run. Artifacts saved per phase.
+- `cli_runner.py` — Deterministic CLI fallback. `CLISession` wraps all `browser-use` CLI commands (open, state, click, type, keys, screenshot, eval, cookies, wait). `CLIPlatformScript` / `GrokImagineCLIScript` are per-platform scripts. Same 3-phase pipeline but no LLM cost.
+- `platforms/base.py` — `PlatformSpec` ABC: `build_submit_task()`, `build_status_task()`, `build_collect_task()`, `parse_json_response()`. Builds natural-language agent task prompts, not CSS selectors.
+- `platforms/grok_imagine.py` — `GrokImagineSpec` for x.com/i/grok.
+
+### Browser Auth Strategies (in order of preference):
+1. Existing `storage_state` file → `Browser(storage_state=<path>)` (normal runs)
+2. Manual headed login → `bootstrap_auth()` → export `storage_state` (first time)
+3. Cookie import from JSON → `import_cookies()` (flat array or Playwright format, with domain filter + merge)
+4. Chrome profile grab → `bootstrap_via_cli_profile()` (piggyback on real Chrome login via CLI `--profile`)
 
 ---
 
@@ -204,9 +233,11 @@ Every shot must have a camera package sentence: body, lens, focal length, apertu
 - **Persistence** — SQLite/JSON project persistence (currently session-scoped)
 - **Tests** — Formal test suite
 - **Audio design** — Sound design knowledge for models with native audio
+- **More browser platforms** — Runway, Pika, Luma platform specs and CLI scripts
 
 ## Files NOT in git
 - `.env` — API keys (in .gitignore)
 - `.venv/` — Python virtual environment (in .gitignore)
 - `take-me-to-sol/` — First run output (untracked)
 - `auteur-v1-notes/` — Planning notes (untracked)
+- `.browser_state/` — Browser auth storage_state files (in .gitignore)

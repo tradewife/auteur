@@ -824,6 +824,32 @@ def get_project(project_id: str) -> dict:
     return project.summary()
 
 
+@mcp.tool
+def browser_platforms() -> dict:
+    """List available browser-automated generation platforms.
+
+    These platforms are web-based video/image generators that AUTEUR
+    can automate through a real browser (Grok Imagine, Runway, Pika, etc.).
+    Requires browser_use_enabled=true in .env and auth bootstrapped per platform.
+    """
+    from auteur.browser_ops.platforms import PLATFORM_SPECS
+    from auteur.config import get_settings
+
+    settings = get_settings()
+    result = {
+        "enabled": settings.browser_use_enabled,
+        "has_controller_llm": bool(settings.browser_use_api_key or settings.gemini_api_key),
+        "platforms": {},
+    }
+    for model_id, spec in PLATFORM_SPECS.items():
+        result["platforms"][model_id] = {
+            "platform": spec.platform,
+            "start_url": spec.start_url,
+            "timeout_s": spec.timeout_s,
+        }
+    return result
+
+
 # ===========================================================================
 # PROMPTS — Reusable templates that guide the LLM's approach
 # ===========================================================================
