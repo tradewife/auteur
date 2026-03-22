@@ -22,8 +22,11 @@ AUTEUR is a cinematography intelligence system for AI generation agents. It enco
 |----------|---------|
 | auteur.sol (payment) | `0x4473350125F66FC17988589A9a948514866bfdE3` |
 | auteuragent.sol (ERC-8183) | `0xc7cAF559a5cF8a3C85cA9acEE4A0010e666871B3` |
-| 0xAUTEUR Shot (Rare ERC-721) | `0x24D258b4249051Dbfa06b1526Bf847062562f126` |
+| 0xAUTEUR Shot (ERC-721) | `0x24D258b4249051Dbfa06b1526Bf847062562f126` |
+| RareProtocolMock (SuperRare track) | `0xA530eb2F308BC6D7810eF73d8103ff9123630Cb4` |
 | Rare Auction | `0x1f0c946f0ee87acb268d50ede6c9b4d010af65d2` |
+
+**Note on Rare Protocol:** Rare Protocol has no public testnet deployment. `RareProtocolMock` implements the same interface (`mint(address, string, bytes) → uint256`, `Minted` event, `totalSupply()`, `tokenURI()`) as a standalone ERC-721 on Base Sepolia for hackathon demonstration purposes.
 
 ### KIE Model Configuration
 | Role | Model | Env Var |
@@ -34,12 +37,88 @@ AUTEUR is a cinematography intelligence system for AI generation agents. It enco
 | Judge Video | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
 
 ### x402 Payment Flow
-1. Client sends request with `Accept: application/json` to AUTEUR MCP endpoint
-2. Server returns HTTP 402 with payment-required metadata (invoice, amount)
-3. Client pays via onchain 0xAUTEUR `spend()` — TX hash becomes proof-of-payment
-4. Client retries request with payment proof in header
-5. Server validates spend receipt via `getLog()`, then fulfills the generation request
-6. SpendReceipt event emitted onchain with CID fields linking to output
+AUTEUR enforces HTTP 402 payment on every MCP request when `X402_ENABLED=true`.
+
+**Step 1 — Client discovers payment requirements:**
+```bash
+curl -s -X POST https://auteur-mcp-production.up.railway.app/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"analyse_brief","arguments":{"logline":"..."}},"id":1}'
+```
+Server returns HTTP 402:
+```json
+{
+  "error": "Payment required",
+  "code": "PAYMENT_REQUIRED",
+  "amount": "100000000000000",
+  "asset": "ETH",
+  "chain": "base-sepolia",
+  "address": "0xBAc0d61DE2B52Dbb7C6800210bf8A54388032109",
+  "instructions": "Sign an AUTEUR payment with your wallet and include the proof in the X-Payment header (base64-encoded JSON)."
+}
+```
+
+**Step 2 — Client signs EIP-712 payment proof:**
+The client constructs an EIP-712 typed data payload with types:
+- `Payment(amount uint256, asset string, recipient address, nonce uint256, expiry uint256)`
+- Domain: `AUTEUR Payment` / version 1 / chainId 84532 / verifyingContract = recipient
+
+Sign with wallet. Encode the proof as base64 JSON:
+```json
+{
+  "signature": "0x...",
+  "signer": "0xYourAddress",
+  "amount": "100000000000000",
+  "asset": "ETH",
+  "chain": "base-sepolia",
+  "recipient": "0xBAc0d61DE2B52Dbb7C6800210bf8A54388032109",
+  "nonce": 12345,
+  "expiry": 1700000000
+}
+```
+
+Fallback: `personal_sign` is also accepted. Message format:
+```
+AUTEUR Payment
+Amount: 100000000000000
+Asset: ETH
+Recipient: 0xBAc0d61DE2B52Dbb7C6800210bf8A54388032109
+Nonce: 12345
+Expiry: 1700000000
+```
+
+**Step 3 — Client retries with X-Payment header:**
+```bash
+PAYMENT_B64=$(echo -n '<json_above>' | base64)
+curl -s -X POST https://auteur-mcp-production.up.railway.app/mcp \
+  -H "Content-Type: application/json" \
+  -H "X-Payment: $PAYMENT_B64" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{...},"id":1}'
+```
+
+**Step 4 — Server verifies proof:**
+`auteur/x402_verify.py` performs these checks:
+1. Decode base64 header → parse JSON → `PaymentPayload`
+2. Check `chain` == `"base-sepolia"`
+3. Check `asset` in accepted set (`ETH`, `USDC`)
+4. Check `recipient` == `AUTEUR_WALLET`
+5. Check `amount` >= `SHOT_PRICE_USDC`
+6. Check `expiry` > current time
+7. Check `nonce` not replayed (in-memory nonce set)
+8. Recover signer from EIP-712 signature (or personal_sign fallback)
+9. Cross-check recovered signer matches claimed `signer`
+
+**Step 5 — After generation, server settles onchain:**
+`auteur/x402_settle.py` calls `spend()` on `auteur.sol`:
+- Function: `spend(address agentId, string taskId, uint256 amount, string cid)`
+- Selector: `0x0eff02ca`
+- Emits `SpendReceipt` event on Base Sepolia
+
+**Files:**
+- `auteur/x402_verify.py` — signature + payload verification
+- `auteur/x402_middleware.py` — ASGI middleware (402 gate)
+- `auteur/x402_settle.py` — onchain spend() settlement
+- `auteur/start.py` — entry point wrapping FastMCP with middleware
 
 ### ERC-8183 Agent-to-Agent Job Lifecycle
 1. **Client** calls `createJob(requestService)` on AuteurAgent — defines scope and reward
