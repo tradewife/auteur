@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # Output
     auteur_output_dir: Path = Path("./output")
 
+    # x402 payment gate
+    x402_enabled: bool = False
+    auteur_wallet: str = ""
+    shot_price_usdc: str = "100000000000000"  # 0.0001 ETH in wei
+    base_sepolia_rpc: str = "https://sepolia.base.org"
+    auteur_contract_address: str = ""  # 0xAUTEUR.sol address for spend() calls
+    deployer_private_key: str = ""  # For onchain spend() settlement
+
     @property
     def has_browser_use(self) -> bool:
         return self.browser_use_enabled and (
@@ -42,6 +50,14 @@ class Settings(BaseSettings):
     @property
     def has_gemini(self) -> bool:
         return bool(self.gemini_api_key)
+
+    @property
+    def x402_configured(self) -> bool:
+        return self.x402_enabled and bool(self.auteur_wallet)
+
+    @property
+    def can_settle(self) -> bool:
+        return bool(self.deployer_private_key) and bool(self.auteur_contract_address)
 
 
 def get_settings() -> Settings:
