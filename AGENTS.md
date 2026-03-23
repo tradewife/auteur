@@ -9,6 +9,18 @@ AUTEUR is a cinematography intelligence system for AI generation agents. It enco
 **Python:** 3.12, venv at `.venv/` — always use `.venv/bin/python3` or activate first
 **Package:** `auteur/`
 
+## Codebase Stats
+
+| Language | Files | Code | Comment |
+|----------|-------|------|---------|
+| Python | 52 | 4,588 | 2,026 |
+| Markdown | 7 | — | 1,708 |
+| TOML | 1 | 20 | 0 |
+| Docker | 1 | 8 | 3 |
+| **Total** | **63** | **4,616** | **3,737** |
+
+52 Python modules across: knowledge (10), styles (6), prompt (5), agents (2), providers (6), browser_ops (5), pipeline (3), server+start+cli+config (4), x402 (3), __init__ files (8).
+
 ## Deployment
 
 ### MCP Server (Railway)
@@ -139,7 +151,7 @@ Deep cinematography ontology as Pydantic models:
 - `movement.py` — `CAMERA_MOVEMENTS` with philosophy
 - `film_stock.py` — `FILM_STOCKS` (Kodak, Fuji, CineStill), `DIGITAL_SENSORS` (ARRI, RED, Sony)
 - `camera.py` — `SENSOR_FORMATS`, `FRAME_RATES`
-- `project.py` — `Project`, `Brief`, `VisualLanguage`, `Scene`, `Beat`, `ProjectStatus`
+- `project.py` — `Project`, `Brief`, `VisualLanguage`, `Scene`, `Beat`, `ProjectStatus`, `CharacterSpec`, `MusicVideoBrief`
 
 ### 2. Style Profiles (`auteur/knowledge/styles/`)
 - `base.py` — `StyleProfile` model, `STYLE_PROFILES` dict
@@ -161,6 +173,7 @@ Example: "rainy Tokyo night, lonely and neon-lit" → Deakins 40% + Storaro 29%
 ### 4. Prompt Engine (`auteur/prompt/`)
 - `composer.py` — `PromptComposer.compose(shot: ShotSpec) -> ComposedPrompt`. Layered assembly: subject → composition → lighting → camera → color → texture → movement → style → mood. Integrates `AuteurLayer` when `shot.aesthetic_style` is set.
 - `optimizer.py` — `PromptOptimizer.optimize()`. Per-model boosters, filters, default params for 55+ models. `ComposedPrompt.optimize(model=...)` chains composer → optimizer.
+- `sanitiser.py` — `validate_shot()` pre-generation validation, `strip_banned_tokens()`, `ValidationResult` with actionable errors/warnings.
 - `negative.py` — `NegativePromptLibrary.for_shot()` with base negatives + style-specific negatives
 - `templates.py` — `SHOT_TEMPLATES` dict, reusable shot scaffolds
 
@@ -179,7 +192,7 @@ Example: "rainy Tokyo night, lonely and neon-lit" → Deakins 40% + Storaro 29%
 
 ### 7. Agents (`auteur/agents/`)
 - `cinematographer.py` — `CinematographerAgent`. Translates narrative intent → `ShotSpec`.
-- `director.py` — `DirectorAgent`. Plans multi-shot sequences via `PACING_TEMPLATES` (establishing_to_intimate, tension_build, action_sequence, dialogue_scene, reveal).
+- `director.py` — `DirectorAgent`. Plans multi-shot sequences via `PACING_TEMPLATES` (establishing_to_intimate, tension_build, action_sequence, dialogue_scene, reveal). `MUSIC_VIDEO_BEAT_STRUCTURE` — 9-beat Aristotelian arc. `tension_to_duration()` — maps tension to shot duration. `plan_music_video()` — full music video planning.
 
 ### 8. MCP Server (`auteur/server.py`)
 FastMCP 3.1.0. 14 tools, 9 resources, 3 prompts.
@@ -188,10 +201,13 @@ FastMCP 3.1.0. 14 tools, 9 resources, 3 prompts.
 - `analyse_brief` — Creates a project from creative intent
 - `propose_visual_language` — Locks visual language with freeform style + auto auteur enrichment
 - `plan_shots` — DirectorAgent shot list via pacing templates
+- `plan_music_video` — 9-beat arc with tension-driven pacing
+- `generate_hero_shots` — Character portraits with full AuteurLayer enrichment
 - `compose_prompt` — Full layered prompt for a shot
 - `refine_shot` — Adjust shot params
 - `define_style` — Standalone freeform style exploration with auteur enrichment
 - `quick_compose` — One-shot prompt composition, no project needed. Accepts `style_description` for freeform input.
+- `sanitise_and_submit` — Enforcement gate (THE ONLY valid path to generation)
 - `provider_status` — Provider/key status
 - `list_pacing_templates` — Available pacing templates
 - `get_project` — Project state
@@ -218,6 +234,7 @@ Pydantic Settings from `.env`: `fal_key`, `kie_api_key`, `gemini_api_key`, `aute
 - Browser auth uses `storage_state` JSON (Playwright format) for cookie/localStorage persistence — never raw profile directory management
 - Browser runner uses 3-phase pattern (submit → poll → collect) with short Agent runs to avoid expensive long-lived LLM sessions
 - CLI deterministic runner is the fallback when LLM agent is too flaky — uses `browser-use` CLI daemon subprocess commands
+- x402 payment uses EIP-712 typed data with `personal_sign` fallback; verification is in-memory (nonce set, no DB)
 
 ## Validation Commands
 ```bash
@@ -265,7 +282,7 @@ print('CLI scripts:', list(CLI_SCRIPTS.keys()))
 "
 ```
 
-## v1 — New Systems
+## v1 — Dramatic Engine & Enforcement
 
 ### Dramatic Engine (`auteur/agents/director.py`)
 - `MUSIC_VIDEO_BEAT_STRUCTURE` — 9-beat Aristotelian arc mapped to song sections
@@ -360,3 +377,5 @@ Every shot must have a camera package sentence: body, lens, focal length, apertu
 - `take-me-to-sol/` — First run output (untracked)
 - `auteur-v1-notes/` — Planning notes (untracked)
 - `.browser_state/` — Browser auth storage_state files (in .gitignore)
+- `browser-use-plan.md` — Browser use planning notes (untracked)
+- `perplexity-chat.md` — Research notes (untracked)

@@ -8,6 +8,18 @@ Give it a sentence, a lyric, a character sketch, a mood reference, or a visual t
 
 This is experimental. The craft it encodes is not.
 
+## Codebase
+
+| Language | Files | Code | Comment |
+|----------|-------|------|---------|
+| Python | 52 | 4,588 | 2,026 |
+| Markdown | 7 | — | 1,708 |
+| TOML | 1 | 20 | 0 |
+| Docker | 1 | 8 | 3 |
+| **Total** | **63** | **4,616** | **3,737** |
+
+52 Python files across 12 modules: knowledge, prompt, agents, providers, browser_ops, pipeline, server, CLI, config, and the x402 payment gate.
+
 ## The Pipeline
 
 Every shot flows through a single data structure called `ShotSpec`. It carries the story, the character, the behavior, the tension level, the camera package, and the visual language from the moment of creative intent to the moment of generation. Nothing bypasses it. Nothing reaches a video model without passing through the full stack.
@@ -172,8 +184,11 @@ auteur/
 │   ├── cli_runner.py        # Deterministic CLI fallback runner
 │   └── platforms/           # Per-platform specs (Grok Imagine, etc.)
 ├── pipeline/                # Shot and sequence execution, asset tracking
-├── server.py                # MCP server (14 tools, 9 resources)
-└── config.py
+├── x402/                    # Payment gate: verify, middleware, settle
+├── server.py                # MCP server (14 tools, 9 resources, 3 prompts)
+├── start.py                 # Entry point wrapping FastMCP with ASGI middleware
+├── cli.py                   # Typer CLI
+└── config.py                # Pydantic Settings
 ```
 
 ## License
@@ -201,13 +216,13 @@ Transport: Streamable HTTP. Deployed from this repo via `railway up --service au
 | Judge Image | Kie.ai | Qwen Image 2.0 | `KIE_IMAGE_MODEL_JUDGE` |
 | Judge Video | Kie.ai | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
 
-Additional providers available: FAL (55+ models), Gemini (8 models), Browser Use (x.com/grok).
+Additional providers available: FAL (32 models), Gemini (8 models), Browser Use (x.com/grok).
 
 ### Onchain Integration (0xAUTEUR)
 
 AUTEUR's generated output connects to the Ethereum ecosystem via the [0xAUTEUR repo](https://github.com/tradewife/0xAUTEUR):
 
-- **Payment:** 0xAUTEUR.sol `spend()` — generates SpendReceipt events with CID fields
+- **Payment:** x402 gate → EIP-712 signed proof → `spend()` on auteur.sol → SpendReceipt onchain
 - **Minting:** Rare Protocol CLI → IPFS pin → ERC-721 NFT on Base Sepolia
 - **Agent Commerce:** AuteurAgent (ERC-8183) — `createJob → fundJob → submitWork → completeJob`
 
