@@ -805,7 +805,17 @@ async def generate_video(
 
     This is the ONLY valid path to video generation in the AUTEUR pipeline.
     Calls sanitise_and_submit for validation, then routes to the best
-    available provider (FAL, KIE, Gemini) to produce a video clip.
+    available provider.
+
+    For Hermes maverick profile with xAI OAuth: image and video via xAI is now
+    integrated directly in Hermes (native xAI gen, no longer needs AUTEUR's old
+    browser_use + grok-imagine-web route). AUTEUR handles the full dramatic
+    architecture, character continuity, Meisner grammar, AuteurLayer, prompt
+    sanitization, and shot specs. The actual generation for xAI is done by
+    Hermes using the OAuth.
+
+    Kie and FAL remain available in AUTEUR as options/fallbacks (pass
+    model="kling-3.0", "veo3", etc. to use them).
 
     Returns the video URL on success, or validation errors on failure.
     Never bypass this gate — all generation must pass through it.

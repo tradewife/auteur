@@ -3,6 +3,10 @@
 Plugs into AUTEUR's existing ProviderRegistry to expose browser-automated
 platforms (Grok Imagine, Runway, Pika, etc.) alongside API-based providers.
 
+Note: For Hermes + xAI OAuth setups, image and video via xAI is now handled
+directly by Hermes (native integration). The grok-imagine-web route (web UI
+automation) is legacy and no longer the primary path inside AUTEUR.
+
 Model IDs use a `-web` suffix to distinguish from API-backed models:
   grok-imagine-web, runway-web, pika-web
 """

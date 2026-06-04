@@ -116,19 +116,21 @@ Model-agnostic. 55+ models across four providers, routed through a single ontolo
 - **Kie.ai**: Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, GPT Image 1.5, Flux Kontext.
 - **FAL**: Veo 3/3.1, Kling 3.0, Sora 2 Pro, Flux 2 Flex, Nano Banana 2/Pro, LTX-2 19B.
 - **Gemini**: Imagen 4, Veo 3.
-- **Browser Use**: Grok Imagine (web automation). Deterministic CLI fallback. Uses `browser-use` library with persistent daemon sessions for platforms without APIs.
+- **Browser Use**: For platforms without stable APIs (e.g. Runway, Pika; Grok Imagine is legacy — Hermes + xAI OAuth uses direct native integration for image/video instead). Deterministic CLI fallback. Uses `browser-use` library with persistent daemon sessions for platforms without APIs.
 
 The intelligence layer is independent of the generation layer. Swap models without changing how the film is designed.
 
 ## Browser Automation
 
-For platforms with no API (Grok Imagine, Runway, Pika), AUTEUR automates a real browser through `browser-use`. Two runner modes:
+For platforms with no (or limited) API (Runway, Pika, etc.), AUTEUR can automate a real browser through `browser-use`. Two runner modes:
 
 **Agent runner** (default): An LLM agent drives the browser using natural-language task prompts. Three short phases — submit, poll for completion, collect outputs — avoid keeping the LLM in the loop during long renders.
 
 **CLI runner** (fallback): Deterministic command sequences via the `browser-use` CLI daemon. No LLM cost, fully scripted, but breaks when the UI changes. Set `metadata={"runner": "cli"}` on the generation request.
 
-Auth follows the gstack pattern — login is never the agent's job:
+**Note for Grok Imagine (grok-imagine-web):** This was the previous route for xAI image/video. With Hermes + xAI OAuth, image and video generation is now integrated directly in Hermes (native). The browser_use path for Grok is legacy and not required for current Hermes/maverick + xAI setups. AUTEUR's role is the specialized film intelligence; Hermes handles the actual xAI gen.
+
+Auth (for remaining platforms) follows the established pattern — login is never the agent's job:
 
 ```bash
 # Strategy 1: Manual headed login (opens browser, you log in, cookies saved)
@@ -150,7 +152,7 @@ pip install -e ".[dev]"
 cp .env.example .env  # FAL_KEY, KIE_API_KEY, GEMINI_API_KEY
 auteur serve --transport stdio
 
-# Optional: browser automation for web-only platforms
+# Optional: browser automation for web-only platforms (Runway, Pika, etc.; Grok Imagine legacy for non-Hermes use)
 pip install browser-use playwright
 playwright install chromium
 # Bootstrap auth for a platform (one-time manual login)
@@ -209,14 +211,16 @@ Transport: Streamable HTTP. Deployed from this repo via `railway up --service au
 
 ### Generation Model Configuration
 
-| Role | Provider | Model | Env Var |
-|------|----------|-------|---------|
-| Main Image | Kie.ai | Nano Banana 2 | `KIE_IMAGE_MODEL_MAIN` |
-| Main Video | Kie.ai | Kling 3.0 | `KIE_VIDEO_MODEL_MAIN` |
+| Role | Provider | Model | Env Var / Note |
+|------|----------|-------|----------------|
+| Main Image | Kie.ai (or others) | Nano Banana 2 | Kie via `KIE_IMAGE_MODEL_MAIN`; for Hermes maverick + xAI OAuth, image/video is handled natively/direct by Hermes |
+| Main Video | Kie.ai (or others) | Kling 3.0 | Kie via `KIE_VIDEO_MODEL_MAIN`; for Hermes maverick + xAI OAuth, image/video is handled natively/direct by Hermes |
 | Judge Image | Kie.ai | Qwen Image 2.0 | `KIE_IMAGE_MODEL_JUDGE` |
 | Judge Video | Kie.ai | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
 
-Additional providers available: FAL (32 models), Gemini (8 models), Browser Use (x.com/grok).
+Additional providers available: FAL (32 models), Gemini (8 models), Browser Use (grok-imagine-web — legacy web automation, no longer primary for Hermes + xAI OAuth).
+
+**xAI OAuth + Hermes (maverick profile):** Image and video generation via xAI OAuth is now integrated directly with Hermes. AUTEUR provides the specialized cinematography intelligence (9-beat arcs, Meisner notes, AuteurLayer, soul lexicon, sanitization). The old browser_use + grok-imagine-web route inside AUTEUR (web UI automation) is the previous way and is no longer needed/used for Hermes xAI setups. Kie and FAL stay as full options inside AUTEUR for when you want to use AUTEUR's provider pipeline (e.g. with other models or non-Hermes use).
 
 ### Onchain Integration (0xAUTEUR)
 

@@ -17,3 +17,6 @@ perplexity-chat.md
 browser-use-plan.md
 auteur-v1-notes/
 take-me-to-sol/
+.gstack/
+# Hermes maverick profile marker (per-workspace for agent integration, not to be committed)
+.hermes-profile

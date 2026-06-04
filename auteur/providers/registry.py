@@ -59,7 +59,11 @@ _MODEL_ROUTING: dict[str, list[str]] = {
     # Runway
     "runway-aleph": ["kie"],
     "runway-gen4-turbo": ["kie"],
-    # OpenAI / xAI
+    # OpenAI / xAI — grok-* models (if used) go through FAL's xAI proxies.
+    # The browser_use / grok-imagine-web web automation is the old route and
+    # no longer needed for Hermes + xAI OAuth (Hermes has direct integration
+    # for image/video via the OAuth). Do not use grok-imagine-web as default
+    # for maverick/xAI setups.
     "sora-2": ["fal"],
     "grok-video": ["fal"],
     # Others
@@ -78,7 +82,7 @@ _MODEL_ROUTING: dict[str, list[str]] = {
     "grok-video-i2v": ["fal"],
     "ltx-2-i2v": ["fal"],
     "svd": ["fal"],
-    # ── Browser-automated platforms ────────────────────────────────
+    # ── Browser-automated platforms (legacy) ────────────────────────────────
     "grok-imagine-web": ["browser_use"],
 }
 

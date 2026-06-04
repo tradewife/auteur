@@ -241,7 +241,7 @@ class Project(BaseModel):
         description="Music video specific brief — set before shot planning",
     )
     scenes: list[Scene] = Field(default_factory=list)
-    target_model: str = Field(default="flux-pro", description="Default generation model")
+    target_model: str = Field(default="flux-pro", description="Default generation model. For Hermes + xAI OAuth, actual image/video gen is handled natively by Hermes (direct); this is mainly for AUTEUR's internal provider pipeline (Kie/FAL etc.) when not using Hermes native xAI.")
 
     @property
     def total_shots(self) -> int:

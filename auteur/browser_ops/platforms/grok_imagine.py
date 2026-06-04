@@ -1,4 +1,9 @@
-"""Grok Imagine platform spec — task prompts for x.com/i/grok image/video generation."""
+"""Grok Imagine platform spec — task prompts for x.com/i/grok image/video generation.
+
+Legacy: For Hermes maverick + xAI OAuth, image/video gen is integrated directly
+in Hermes. This browser automation path is the old route and not required for
+current xAI setups with Hermes.
+"""
 
 from __future__ import annotations
 

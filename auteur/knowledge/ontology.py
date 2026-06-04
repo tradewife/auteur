@@ -293,7 +293,7 @@ class ShotSpec(BaseModel):
     )
 
     # Generation metadata
-    target_model: str = Field(default="", description="Target generation model (e.g. 'flux-pro', 'veo3')")
+    target_model: str = Field(default="", description="Target generation model (e.g. 'flux-pro', 'veo3', 'kling-3.0'). For Hermes maverick + xAI OAuth, image/video assets are generated natively by Hermes using direct xAI; AUTEUR target_model is for its provider routing when using Kie/FAL/etc.")
     animate: bool = Field(default=False, description="Whether to animate after image generation")
     duration_seconds: float = Field(default=5.0, description="Clip duration in seconds — set by arc pacing, not user-configurable")
     seed: int | None = Field(default=None, description="Seed for reproducibility")

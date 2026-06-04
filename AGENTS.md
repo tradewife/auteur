@@ -40,12 +40,14 @@ AUTEUR is a cinematography intelligence system for AI generation agents. It enco
 **Rare Protocol integration:** The ShotNFT (`0x24D258b4249051Dbfa06b1526Bf847062562f126`) is registered with Rare Protocol via `rare import erc721` on Base Sepolia. Minting works via the `rare` CLI (`rare mint --contract 0x... --token-uri ... --chain base-sepolia`). Verified mint: TX `0xcd926b9a989042ef4bcba11b32e86a20f30f6db313e6988506b8248c72d83456` (Token ID #3). Rare Protocol docs: https://rare.xyz/docs. Rare Protocol Factory on Ethereum Sepolia: `0x3c7526a0975156299ceef369b8ff3c01cc670523`. On Base Sepolia, only wallet+search+status+import+mint are supported (no factory deploy). Collections are deployed separately via Foundry and imported with `rare import erc721`.
 
 ### KIE Model Configuration
-| Role | Model | Env Var |
-|------|-------|---------|
-| Main Image | Nano Banana 2 | `KIE_IMAGE_MODEL_MAIN` |
-| Main Video | Kling 3.0 | `KIE_VIDEO_MODEL_MAIN` |
+| Role | Model | Env Var / Note |
+|------|-------|----------------|
+| Main Image | Nano Banana 2 (Kie) or other | Kie via `KIE_IMAGE_MODEL_MAIN`; for Hermes + xAI OAuth, image/video gen is handled natively by Hermes (direct xAI integration) |
+| Main Video | Kling 3.0 (Kie) or other | Kie via `KIE_VIDEO_MODEL_MAIN`; for Hermes + xAI OAuth, image/video gen is handled natively by Hermes (direct xAI integration) |
 | Judge Image | Qwen Image 2.0 | `KIE_IMAGE_MODEL_JUDGE` |
 | Judge Video | Seedance 1.5 Pro | `KIE_VIDEO_MODEL_JUDGE` |
+
+**For maverick / xAI OAuth setups (Hermes):** Hermes has direct integration for image and video via xAI OAuth. AUTEUR is used for the intelligence layer (dramatic structure, Meisner, AuteurLayer, prompt composition, sanitization via `sanitise_and_submit`). The old browser_use + grok-imagine-web route inside AUTEUR is no longer needed for this (it was the previous web automation way). Kie and FAL remain available inside AUTEUR as options — pass explicit model when calling tools if you want to use AUTEUR's built-in providers for non-xAI gens. |
 
 ### x402 Payment Flow
 AUTEUR enforces HTTP 402 payment on every MCP request when `X402_ENABLED=true`.
@@ -183,7 +185,7 @@ Example: "rainy Tokyo night, lonely and neon-lit" → Deakins 40% + Storaro 29%
 - `kie.py` — `KieProvider`, 15 models. Image + video gen. Kling 3.0, Runway Gen4 Turbo, Seedance 1.5 Pro, Wan 2.6, Nano Banana 2/Pro, GPT Image 1.5, Flux Kontext.
 - `gemini.py` — `GeminiProvider`, 8 models. Imagen 4 Standard/Ultra/Fast, Nano Banana 2, Veo 3.
 - `registry.py` — `ProviderRegistry` with 55+ model routing entries.
-- `browser_use.py` — `BrowserUseProvider`. Automates web platforms via browser-use + LLM agents. Routes to agent runner or CLI fallback. Model IDs: `grok-imagine-web`.
+- `browser_use.py` — `BrowserUseProvider`. Automates web platforms via browser-use + LLM agents (legacy for Grok; Hermes + xAI OAuth now uses direct integration for image/video, so grok-imagine-web is no longer the primary route inside AUTEUR). Routes to agent runner or CLI fallback. Model IDs: `grok-imagine-web` (and others).
 
 ### 6. Pipeline (`auteur/pipeline/`)
 - `shot.py` — `ShotPipeline` (compose → optimize → generate)
@@ -320,7 +322,7 @@ print('CLI scripts:', list(CLI_SCRIPTS.keys()))
 - `runner.py` — LLM Agent runner. 3-phase pipeline: submit task → poll status → collect outputs. Each phase is a short `Agent(task=..., llm=..., browser=...)` run. Artifacts saved per phase.
 - `cli_runner.py` — Deterministic CLI fallback. `CLISession` wraps all `browser-use` CLI commands (open, state, click, type, keys, screenshot, eval, cookies, wait). `CLIPlatformScript` / `GrokImagineCLIScript` are per-platform scripts. Same 3-phase pipeline but no LLM cost.
 - `platforms/base.py` — `PlatformSpec` ABC: `build_submit_task()`, `build_status_task()`, `build_collect_task()`, `parse_json_response()`. Builds natural-language agent task prompts, not CSS selectors.
-- `platforms/grok_imagine.py` — `GrokImagineSpec` for x.com/i/grok.
+- `platforms/grok_imagine.py` — `GrokImagineSpec` for x.com/i/grok (legacy for direct web UI; for Hermes maverick + xAI OAuth, image/video is handled natively/direct by Hermes — this route is no longer the primary/required path inside AUTEUR).
 
 ### Browser Auth Strategies (in order of preference):
 1. Existing `storage_state` file → `Browser(storage_state=<path>)` (normal runs)
@@ -374,8 +376,7 @@ Every shot must have a camera package sentence: body, lens, focal length, apertu
 ## Files NOT in git
 - `.env` — API keys (in .gitignore)
 - `.venv/` — Python virtual environment (in .gitignore)
-- `take-me-to-sol/` — First run output (untracked)
-- `auteur-v1-notes/` — Planning notes (untracked)
-- `.browser_state/` — Browser auth storage_state files (in .gitignore)
-- `browser-use-plan.md` — Browser use planning notes (untracked)
-- `perplexity-chat.md` — Research notes (untracked)
+- `.browser_state/` — Browser auth storage_state files (in .gitignore; currently empty)
+- `.gstack/` — gstack tooling (in .gitignore; not used in current maverick/Hermes setup)
+- `.hermes-profile` — Marker for Hermes maverick profile integration (in .gitignore)
+- (Old planning files like auteur-v1-notes/, browser-use-plan.md, perplexity-chat.md, take-me-to-sol/ have been cleaned up for a tidy workspace.)
